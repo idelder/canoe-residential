@@ -83,8 +83,7 @@ for period in config.model_periods:
 
 # Table 21: Heating System Stock by Building Type and Heating System Type
 t21 = utils.get_data(f"https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/data_e/downloads/comprehensive/Excel/{data_year}/res_{region.lower()}_e_21.xls", skiprows=10)
-print(t21)
-t21 = t21.loc[16:30].rename(columns={'Unnamed: 1':'tech'}).drop("Unnamed: 0", axis=1).set_index('tech').dropna()
+t21 = t21.loc[16:30].rename(columns={'Unnamed: 1':'tech'}).drop("Unnamed: 0", axis=1).set_index('tech').dropna()*1000
 
 print(t21)
 
