@@ -1,0 +1,23 @@
+# Configuration for residential sector
+
+model_periods:
+  - 2025
+  - 2030
+  - 2035
+  - 2040
+  - 2045
+  - 2050
+
+demand_commodities:
+  space_heating: 'D_R_SPH'
+  space_cooling: 'D_R_SPC'
+  lighting: 'D_R_LGT'
+  water_heating: 'D_R_WAH'
+  refrigerators: 'D_R_APP_REF'
+  freezers: 'D_R_APP_FRZ'
+  dishwashers: 'D_R_APP_DSH'
+  clothes_washers: 'D_R_APP_CWSH'
+  clothes_dryers: 'D_R_APP_CDRY'
+  cooking_ranges: 'D_R_APP_COOK_RNG'
+  other_appliances: 'D_R_APP_OTH'
+
