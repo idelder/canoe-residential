@@ -1,0 +1,78 @@
+﻿canoe_tech,subsector,nrcan_stock,input_comm
+R_APP_CDRY_ELC_HEF,appliances,,electricity
+R_APP_CDRY_ELC_MEF,appliances,,electricity
+R_APP_CDRY_LPG_HEF,appliances,,lpg
+R_APP_CDRY_LPG_MEF,appliances,,lpg
+R_APP_CDRY_NGS_HEF,appliances,,natural gas
+R_APP_CDRY_NGS_MEF,appliances,,natural gas
+R_APP_COOK_RNG_ELC_HEF,appliances,,electricity
+R_APP_COOK_RNG_ELC_MEF,appliances,,electricity
+R_APP_COOK_RNG_LPG_HEF,appliances,,lpg
+R_APP_COOK_RNG_LPG_MEF,appliances,,lpg
+R_APP_COOK_RNG_NGS_HEF,appliances,,natural gas
+R_APP_COOK_RNG_NGS_MEF,appliances,,natural gas
+R_APP_CWSH_HEF,appliances,,electricity
+R_APP_CWSH_MEF,appliances,,electricity
+R_APP_DSH_HEF,appliances,,electricity
+R_APP_DSH_MEF,appliances,,electricity
+R_APP_FRZ_HEF,appliances,,electricity
+R_APP_FRZ_MEF,appliances,,electricity
+R_APP_OTH_APP,appliances,,electricity
+R_APP_REF_HEF,appliances,,electricity
+R_APP_REF_MEF,appliances,,electricity
+R_LGT_CFL,lighting,,electricity
+R_LGT_HAL,lighting,,electricity
+R_LGT_INC,lighting,,electricity
+R_LGT_LED,lighting,,electricity
+R_SPC_AC_CEN_HEF,space cooling,,electricity
+R_SPC_AC_CEN_MEF,space cooling,,electricity
+R_SPC_AC_PORT_HEF,space cooling,,electricity
+R_SPC_AC_PORT_MEF,space cooling,,electricity
+R_SPC_AC_ROM_HEF,space cooling,,electricity
+R_SPC_AC_ROM_MEF,space cooling,,electricity
+R_SPC_CEN_EXS,space cooling,,electricity
+R_SPC_ROM_EXS,space cooling,,electricity
+R_SPH_ELC_EXS,space heating,Electric,electricity
+R_SPH_ELC_FRN,space heating,,electricity
+R_SPH_ELC_RES,space heating,,electricity
+R_SPH_HP_EXS,space heating,Heat Pump,electricity
+R_SPH_LPG_HEF,space heating,,lpg
+R_SPH_LPG_MEF,space heating,Other1,lpg
+R_SPH_NGS_ELC,space heating,Natural Gas/Electric,natural gas
+R_SPH_NGS_HEF,space heating,Natural Gas – High Efficiency,natural gas
+R_SPH_NGS_MEF,space heating,Natural Gas – Medium Efficiency,natural gas
+R_SPH_OIL_ELC,space heating,Heating Oil/Electric,oil
+R_SPH_OIL_HEF,space heating,,oil
+R_SPH_OIL_MEF,space heating,Heating Oil – Medium Efficiency,oil
+R_SPH_WOD_CRD_CAT_HEF,space heating,,wood
+R_SPH_WOD_CRD_CAT_MEF,space heating,,wood
+R_SPH_WOD_CRD_NC_HEF,space heating,,wood
+R_SPH_WOD_CRD_NC_MEF,space heating,,wood
+R_SPH_WOD_ELC,space heating,Wood/Electric,wood
+R_SPH_WOD_EXS,space heating,Wood,wood
+R_SPH_WOD_OIL,space heating,Wood/Heating Oil,wood
+R_SPH_WOD_PEL_HEF,space heating,,wood
+R_SPH_WOD_PEL_MEF,space heating,,wood
+R_SPHC_HP_AIR_DMS,space heating and cooling,,electricity
+R_SPHC_HP_AIR_HEF,space heating and cooling,,electricity
+R_SPHC_HP_AIR_MEF,space heating and cooling,,electricity
+R_SPHC_HP_GEO_HEF,space heating and cooling,,electricity
+R_SPHC_HP_GEO_MEF,space heating and cooling,,electricity
+R_SPHC_HP_NGS,space heating and cooling,,electricity
+R_WAH_ELC_HEF,water heating,,electricity
+R_WAH_ELC_INST,water heating,,electricity
+R_WAH_ELC_MEF,water heating,,electricity
+R_WAH_HP_HEF,water heating,,electricity
+R_WAH_HP_MEF,water heating,,electricity
+R_WAH_LPG_HEF,water heating,,lpg
+R_WAH_LPG_INST_HEF,water heating,,lpg
+R_WAH_LPG_INST_MEF,water heating,,lpg
+R_WAH_LPG_MEF,water heating,,lpg
+R_WAH_NGS_HEF,water heating,,natural gas
+R_WAH_NGS_INST_HEF,water heating,,natural gas
+R_WAH_NGS_INST_MEF,water heating,,natural gas
+R_WAH_NGS_MEF,water heating,,natural gas
+R_WAH_OIL_HEF,water heating,,heating oil
+R_WAH_OIL_MEF,water heating,,heating oil
+R_WAH_SOL,water heating,,ethos
+R_WAH_WOD,water heating,,wood

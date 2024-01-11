@@ -12,6 +12,7 @@ import pandas as pd
 import requests
 import xmltodict
 import json
+import math
 
 
 
@@ -94,6 +95,15 @@ def dq_time(from_year, to_year):
 
 
 
+def feasible_vintages(period, vint_interval, lifetime):
+
+    vint_0 = period - period%vint_interval
+
+    return [*range(vint_0, period - lifetime, -vint_interval)]
+
+    
+
+
 class DatabaseConverter:
     
     # Singleton pattern
@@ -139,7 +149,7 @@ class DatabaseConverter:
         # Connect to the sqlite from file and get data table names
         conn = sqlite3.connect(from_sqlite_file)
         curs = conn.cursor()
-        fetched = curs.execute("""SELECT name FROM sqlite_master WHERE type='table';""").fetchall()
+        fetched = curs.execute("""SELECT name FROM sqlite_master WHERE type='table'""").fetchall()
 
         # Skipping output tables, since this was written for input data
         all_tables = [table[0] for table in fetched if (not table[0].startswith('Output'))]

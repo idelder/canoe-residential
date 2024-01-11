@@ -1,5 +1,7 @@
 # Configuration for residential sector
 
+period_step: 5
+
 model_periods:
   - 2025
   - 2030
@@ -21,3 +23,10 @@ demand_commodities:
   cooking_ranges: 'D_R_APP_COOK_RNG'
   other_appliances: 'D_R_APP_OTH'
 
+fuel_commodities:
+  'wood': 'R_WOD'
+  'electricity': 'R_ELC'
+  'lpg': 'R_LPG'
+  'natural gas': 'R_NGS'
+  'heating oil': 'R_OIL'
+  'ethos': 'R_ethos'
