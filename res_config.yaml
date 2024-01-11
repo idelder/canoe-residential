@@ -28,5 +28,11 @@ fuel_commodities:
   'electricity': 'R_ELC'
   'lpg': 'R_LPG'
   'natural gas': 'R_NGS'
-  'heating oil': 'R_OIL'
+  'oil': 'R_OIL'
   'ethos': 'R_ethos'
+
+nrcan_reference: Comprehensive Energy Use Database. Government of Canada, Natural Resources Canada. (2020) https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/menus/trends/comprehensive_tables/list.cfm
+nrcan_data_year: 2020
+
+aeo_reference: 'EIA. (2023). Updated Buildings Sector Appliance and Equipment Costs and Efficiency—Reference case [dataset]. https://www.eia.gov/analysis/studies/buildings/equipcosts/'
+aeo_data_year: 2023

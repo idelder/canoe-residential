@@ -4,31 +4,98 @@ Written by Ian David Elder for the CANOE model
 """
 
 import pandas as pd
+import sqlite3
 import os
-import math
-import scipy as sp
-import numpy as np
+import utils
+from scipy.special import gamma
+from setup import config
 
 this_dir = os.path.realpath(os.path.dirname(__file__)) + "/"
-cache_dir = this_dir + "data_cache/"
-res_menu = cache_dir + "AEO2023_Reference_case_RDM_technology_menu_rsmess.xlsx"
+input_files = this_dir + 'input_files/'
+schema_file = this_dir + "canoe_schema.sql"
+database_file = this_dir + "residential.sqlite"
 
-# Collecing general class-based technology data from AEO2023 residential technology menu
-df_class = pd.read_excel(res_menu, sheet_name="RSCLASS", skiprows=18)
-df_class = df_class.iloc[1:-1] # skip label row
-df_class = df_class.loc[df_class['Equipment Class Name'].notna()] # remove empty rows
-df_class['Lifetime'] = df_class["Weibull λ"] * sp.special.gamma(list(1 + 1 / df_class['Weibull K'])) # average lifetime from weibull dist
+# Check if database exists or needs to be built
+build_db = not os.path.exists(database_file)
 
-# Collecting technology data from residential technology menu
-# 1. Current standard
-# 2. Typical
-# 3. ENERGY STAR
-# 4. High
-df_equip = pd.read_excel(res_menu, sheet_name='RSMEQP', skiprows=21, index_col=0)
-df_equip = df_equip.iloc[2:-1] # skip two label rows
-df_equip = df_equip.loc[df_equip['Tech Name'].notna()] # remove empty rows
+# Connect to the new database file
+conn = sqlite3.connect(database_file)
+curs = conn.cursor() # Cursor object interacts with the sqlite db
 
-print(df_equip.loc[(df_equip['Tech Name'].str.contains('4')) & (df_equip['Census Division'] == 3)])
+# Instantiate the database if it doesn't exist
+if build_db: curs.executescript(open(schema_file, 'r').read())
+
+
+
+"""
+##############################################################
+    AEO data (future vintages)
+##############################################################
+"""
+
+##############################################################
+# Lifetime
+##############################################################
+
+config.lifetimes = {}
+
+## AEO technologies (future vintages)
+note = 'Average of Weibull distribution'
+aeo_ref = config.params['aeo_reference']
+aeo_year = config.params['aeo_data_year']
+
+for tech in config.aeo_techs.index:
+
+    aeo_tech = config.aeo_techs.loc[tech, 'aeo_tech']
+    end_use_ids = config.aeo_techs.loc[tech, 'end_use_ids'].split('+')
+
+    # Get lifetime from mean of weibull distribution
+    weibull_k = config.aeo_res_class.loc[config.aeo_res_class['End Use'] == int(end_use_ids[0])].loc[aeo_tech, 'Weibull K']
+    weibull_l = config.aeo_res_class.loc[config.aeo_res_class['End Use'] == int(end_use_ids[0])].loc[aeo_tech, 'Weibull λ']
+
+    lifetime = round(weibull_l * gamma(1 + 1/weibull_k)) # mean of weibull distribution
+
+    # Add feasible vintages to config dictionary
+    config.tech_vints[tech] = config.model_periods
+
+    for region in config.regions.index:
+        curs.execute(f"""REPLACE INTO
+                    LifetimeTech(regions, tech, life, life_notes,
+                    reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
+                    VALUES('{region}', '{tech}', {lifetime}, '{note}',
+                    '{aeo_ref}', {2023}, 1, 1, 1, 1, 1, 1)""")
+
+
+## NRCan technologies (existing vintages)
+nrcan_ref = config.params['nrcan_reference']
+nrcan_year = config.params['nrcan_data_year']
+
+for tech in config.nrcan_techs.index:
+
+    # Get equivalent future tech to this existing tech to pull AEO data
+    aeo_tech = config.nrcan_techs.loc[tech, 'aeo_tech']
+    equiv_tech = config.aeo_techs.loc[config.aeo_techs['aeo_tech']==aeo_tech].index.values[0]
+    end_use_ids = config.aeo_techs.loc[equiv_tech, 'end_use_ids'].split('+')
+    
+    # Get lifetime from mean of weibull distribution
+    weibull_k = config.aeo_res_class.loc[config.aeo_res_class['End Use'] == int(end_use_ids[0])].loc[aeo_tech, 'Weibull K']
+    weibull_l = config.aeo_res_class.loc[config.aeo_res_class['End Use'] == int(end_use_ids[0])].loc[aeo_tech, 'Weibull λ']
+
+    lifetime = round(weibull_l * gamma(1 + 1/weibull_k)) # mean of weibull distribution
+
+    # Add feasible vintages to config dictionary
+    config.tech_vints[tech] = utils.feasible_vintages(config.model_periods[0], config.params['period_step'], lifetime)
+
+    note = f"Assumed same as {equiv_tech}"
+
+    for region in config.regions.index:
+        curs.execute(f"""REPLACE INTO
+                    LifetimeTech(regions, tech, life, life_notes,
+                    reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
+                    VALUES('{region}', '{tech}', {lifetime}, '{note}',
+                    '{aeo_ref}', {nrcan_year}, 1, 1, 1, 1, 1, 1)""")
+
+
 
 """
 ##############################################################
@@ -36,3 +103,5 @@ print(df_equip.loc[(df_equip['Tech Name'].str.contains('4')) & (df_equip['Census
 ##############################################################
 """
 
+conn.commit()
+conn.close()

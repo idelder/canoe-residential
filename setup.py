@@ -14,6 +14,9 @@ class config:
     # File locations
     _this_dir = os.path.realpath(os.path.dirname(__file__)) + "/"
     _input_files = _this_dir + 'input_files/'
+    _input_data = _this_dir + 'input_data/'
+
+    tech_vints = {}
 
     _instance = None # singleton pattern
 
@@ -24,6 +27,7 @@ class config:
 
         cls._instance = super(config, cls).__new__(cls, *args, **kwargs)
         cls._get_params(cls)
+        cls._get_aeo_data(cls)
 
         print('Instantiated setup config.')
 
@@ -36,13 +40,17 @@ class config:
         config.params = dict(yaml.load(stream, Loader=yaml.Loader))
 
         config.model_periods = list(config.params['model_periods'])
-        config.technologies = pd.read_csv(config._input_files + 'technologies.csv', index_col=0)
+        config.aeo_techs = pd.read_csv(config._input_files + 'aeo_technologies.csv', index_col=0)
+        config.nrcan_techs = pd.read_csv(config._input_files + 'nrcan_technologies.csv', index_col=0)
+        config.regions = pd.read_csv(config._input_files + 'regions.csv', index_col=0)
 
 
     def _get_aeo_data(cls):
 
-        config.aeo_res_class = pd.read_excel(config._input_files + 'AEO2023_Reference_case_RDM_technology_menu_rsmess.xlsx', sheet_name='RSCLASS', skiprows=18, nrows=31).dropna()
-        config.aeo_res_equip = pd.read_excel(config._input_files + 'AEO2023_Reference_case_RDM_technology_menu_rsmess.xlsx', sheet_name='RSMEQP', skiprows=21, nrows=1084).dropna()
+        config.aeo_res_class = pd.read_excel(config._input_data + 'AEO2023_Reference_case_RDM_technology_menu_rsmess.xlsx',
+                                             sheet_name='RSCLASS', skiprows=18, nrows=31, index_col=20).iloc[1:,1:20]
+        config.aeo_res_equip = pd.read_excel(config._input_data + 'AEO2023_Reference_case_RDM_technology_menu_rsmess.xlsx',
+                                             sheet_name='RSMEQP', skiprows=21, nrows=1084, index_col=28).iloc[2:,1:28]
 
 
 
