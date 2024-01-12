@@ -1,4 +1,4 @@
-﻿tech,nrcan_stocks,nrcan_fuels,subsector,description,aeo_tech,input_comm
+﻿tech,nrcan_stocks,nrcan_fuels,end_use,description,aeo_class,input_comms
 R_SPH_OIL-EXS,Heating Oil – Normal Efficiency+Heating Oil – Medium Efficiency+Heating Oil – High Efficiency,Heating Oil – Normal Efficiency+Heating Oil – Medium Efficiency+Heating Oil – High Efficiency,space heating,existing oil,DIST_FA,oil
 R_SPH_NG-EXS,Natural Gas – Normal Efficiency+Natural Gas – Medium Efficiency+Natural Gas – High Efficiency,Natural Gas – Normal Efficiency+Natural Gas – Medium Efficiency+Natural Gas – High Efficiency,space heating,existing natural gas,NG_FA,natural gas
 R_SPH_ELEC-EXS,Electric,Electric,space heating,existing electric,ELEC_RAD,electricity

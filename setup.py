@@ -36,7 +36,7 @@ class config:
 
     def _get_params(cls):
         
-        stream = open(config._this_dir + "res_config.yaml", 'r')
+        stream = open(config._input_files + "res_config.yaml", 'r')
         config.params = dict(yaml.load(stream, Loader=yaml.Loader))
 
         config.model_periods = list(config.params['model_periods'])

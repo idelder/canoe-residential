@@ -11,23 +11,23 @@ model_periods:
   - 2050
 
 demand_commodities:
-  space_heating: 'D_R_SPH'
-  space_cooling: 'D_R_SPC'
-  lighting: 'D_R_LGT'
-  water_heating: 'D_R_WAH'
-  refrigerators: 'D_R_APP_REF'
-  freezers: 'D_R_APP_FRZ'
-  dishwashers: 'D_R_APP_DSH'
-  clothes_washers: 'D_R_APP_CWSH'
-  clothes_dryers: 'D_R_APP_CDRY'
-  cooking_ranges: 'D_R_APP_COOK_RNG'
-  other_appliances: 'D_R_APP_OTH'
+  'space heating': 'D_R_SPH'
+  'space cooling': 'D_R_SPC'
+  'lighting': 'D_R_LGT'
+  'water heating': 'D_R_WAH'
+  'refrigerators': 'D_R_APP_REF'
+  'freezers': 'D_R_APP_FRZ'
+  'dish washers': 'D_R_APP_DSH'
+  'clothes washers': 'D_R_APP_CWSH'
+  'clothes dryers': 'D_R_APP_CDRY'
+  'cooking ranges': 'D_R_APP_COOK_RNG'
+  'other appliances': 'D_R_APP_OTH'
 
 fuel_commodities:
   'wood': 'R_WOD'
   'electricity': 'R_ELC'
   'lpg': 'R_LPG'
-  'natural gas': 'R_NGS'
+  'natural gas': 'R_NG'
   'oil': 'R_OIL'
   'ethos': 'R_ethos'
 
@@ -36,3 +36,9 @@ nrcan_data_year: 2020
 
 aeo_reference: 'EIA. (2023). Updated Buildings Sector Appliance and Equipment Costs and Efficiency—Reference case [dataset]. https://www.eia.gov/analysis/studies/buildings/equipcosts/'
 aeo_data_year: 2023
+
+aeo_currency_year: 2022
+aeo_currency: 'USD'
+
+statcan_reference: "Statistics Canada, (2022, August 22). Projected population, by projection scenario, age and sex, as of July 1. https://www150.statcan.gc.ca/t1/tbl1/en/cv.action?pid=1710005701"
+statcan_data_year: 2022
