@@ -18,7 +18,7 @@ import math
 
 this_dir = os.path.realpath(os.path.dirname(__file__)) + "/"
 cache_dir = this_dir + "download_cache/"
-excel_template = this_dir + 'Template spreadsheet.xlsx'
+excel_template = this_dir + 'Template spreadsheet (make a copy).xlsx'
 
 
 

@@ -13,7 +13,7 @@ class config:
 
     # File locations
     _this_dir = os.path.realpath(os.path.dirname(__file__)) + "/"
-    _input_files = _this_dir + 'input_files/'
+    _input_config = _this_dir + 'input_config/'
     _input_data = _this_dir + 'input_data/'
 
     tech_vints = {}
@@ -36,13 +36,15 @@ class config:
 
     def _get_params(cls):
         
-        stream = open(config._input_files + "res_config.yaml", 'r')
+        stream = open(config._input_config + "res_config.yaml", 'r')
         config.params = dict(yaml.load(stream, Loader=yaml.Loader))
 
         config.model_periods = list(config.params['model_periods'])
-        config.aeo_techs = pd.read_csv(config._input_files + 'aeo_technologies.csv', index_col=0)
-        config.nrcan_techs = pd.read_csv(config._input_files + 'nrcan_technologies.csv', index_col=0)
-        config.regions = pd.read_csv(config._input_files + 'regions.csv', index_col=0)
+        config.aeo_techs = pd.read_csv(config._input_config + 'aeo_technologies.csv', index_col=0)
+        config.nrcan_techs = pd.read_csv(config._input_config + 'nrcan_technologies.csv', index_col=0)
+        config.regions = pd.read_csv(config._input_config + 'regions.csv', index_col=0)
+
+        config.all_techs = [*config.aeo_techs.index.values, *config.nrcan_techs.index.values]
 
 
     def _get_aeo_data(cls):

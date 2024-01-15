@@ -11,7 +11,7 @@ import sqlite3
 
 
 this_dir = os.path.realpath(os.path.dirname(__file__)) + "/"
-input_files = this_dir + 'input_files/'
+input_config = this_dir + 'input_config/'
 schema_file = this_dir + "canoe_schema.sql"
 database_file = this_dir + "residential.sqlite"
 
@@ -22,8 +22,11 @@ aeo_res_class = config.aeo_res_class
 aeo_res_equip = config.aeo_res_equip
 aeo_ref = config.params['aeo_reference']
 aeo_year = config.params['aeo_data_year']
+nrcan_year = config.params['nrcan_data_year']
+nrcan_ref = config.params['nrcan_reference']
 
 
+# For non-regional aggregation
 def aggregate():
 
     # Connect to the new database file
@@ -92,7 +95,7 @@ def aggregate():
 
     for tech, row in config.nrcan_techs.iterrows():
 
-        tech_desc = f"{row.loc['end_use']} - {row.loc['description']}"
+        tech_desc = f"{row.loc['end_uses']} - {row.loc['description']}"
         curs.execute(f"""REPLACE INTO
                         technologies(tech, flag, sector, tech_desc, reference)
                         VALUES('{tech}', 'p', 'residential', '{tech_desc}', '{aeo_ref}')""")
@@ -120,11 +123,13 @@ def aggregate():
                         VALUES('{region}', '{tech}', {lifetime}, '{note}',
                         '{aeo_ref}', {aeo_year}, 2, 1, 1, 1, 1, 2)""")
             
+
     conn.commit()
     conn.close()
             
 
 
+# For region-specific aggregation
 def aggregate_region(region):
 
     # Connect to the new database file
@@ -209,7 +214,60 @@ def aggregate_region(region):
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                         VALUES('{region}', '{in_comm}', '{tech}', {vint}, '{out_comm}', {eff}, '{eff_metric}',
                         '{aeo_ref}', {aeo_year}, 1, 1, 1, 1, 1, 1)""")
+    
 
-            
+    conn.commit()
+    conn.close()
+
+
+# For non-regional post-subsector aggregation
+def aggregate_post():
+
+    # Connect to the new database file
+    conn = sqlite3.connect(database_file)
+    curs = conn.cursor() # Cursor object interacts with the sqlite db
+
+    """
+    ##############################################################
+        Emission Activity
+    ##############################################################
+    """
+
+    emis_comm = config.params['emissions_commodity']
+    emis_units = config.params['emission_activity_units']
+
+    # Get emissions factors for fuels in ktCO2eq/PJ_in
+    emis_fact = pd.read_excel("input_data/ghg-emission-factors-hub.xlsx", skiprows=13, nrows=76, index_col=2)[['CO2 Factor', 'CH4 Factor', 'N2O Factor']].iloc[1::].dropna()
+    emis_fact = emis_fact[pd.to_numeric(emis_fact['CO2 Factor'], errors='coerce').notnull()]
+    for fact in emis_fact.columns: emis_fact[fact] *= config.params['epa_conversion_factors'][fact.strip(' Factor')] * config.params['gwp'][fact.strip(' Factor')]
+    emis_fact[emis_comm] = emis_fact.sum(axis=1)
+    
+    # Fuel translator
+    epa_fuels = pd.read_csv(input_config + 'epa_fuels.csv', index_col=0)
+
+    for tech in config.all_techs:
+
+        # Valid vintages and efficiencies from Efficiency table
+        rows = curs.execute(f"SELECT regions, input_comm, tech, vintage, output_comm, efficiency FROM Efficiency WHERE tech == '{tech}'").fetchall()
+
+        for row in rows:
+
+            # Input fuel by epa naming convention
+            epa_fuel = epa_fuels.loc[row[1], 'epa_fuel']
+            if pd.isna(epa_fuel): continue # doesn't need emissionsactivity
+
+            # EmissionActivity is tied to OUTPUT energy so divide by efficiency
+            emis_act = emis_fact.loc[epa_fuel, emis_comm] / row[5]
+
+            # Note assumed fuel
+            note = f"Emissions factor using {epa_fuel} (EPA, {config.params['epa_year']}) divided by efficiency as emissions are per output unit energy."
+
+            curs.execute(f"""REPLACE INTO
+                        EmissionActivity(regions, emis_comm, input_comm, tech, vintage, output_comm, emis_act, emis_act_units, emis_act_notes,
+                        reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
+                        VALUES('{row[0]}', '{emis_comm}', '{row[1]}', '{row[2]}', {row[3]}, '{row[4]}', {emis_act}, '{emis_units}', '{note}',
+                        '{config.params['epa_reference']}', {config.params['epa_year']}, 2, 1, 1, 1, 1, 3)""")
+
+
     conn.commit()
     conn.close()

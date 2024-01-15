@@ -13,7 +13,7 @@ import aggregate_generic
 import aggregate_space_heating
 
 this_dir = os.path.realpath(os.path.dirname(__file__)) + "/"
-input_files = this_dir + 'input_files/'
+input_config = this_dir + 'input_config/'
 schema_file = this_dir + "canoe_schema.sql"
 database_file = this_dir + "residential.sqlite"
 
@@ -33,3 +33,4 @@ conn.close()
 aggregate_generic.aggregate()
 aggregate_generic.aggregate_region("ON")
 aggregate_space_heating.aggregate("ON")
+aggregate_generic.aggregate_post()

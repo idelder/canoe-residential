@@ -14,7 +14,7 @@ from setup import config
 region = 'ON'
 
 this_dir = os.path.realpath(os.path.dirname(__file__)) + "/"
-input_files = this_dir + 'input_files/'
+input_config = this_dir + 'input_config/'
 schema_file = this_dir + "canoe_schema.sql"
 database_file = this_dir + "residential.sqlite"
 
@@ -26,8 +26,9 @@ aeo_ref = config.params['aeo_reference']
 statcan_year = config.params['statcan_data_year']
 statcan_ref = config.params['statcan_reference']
 
-# Data from NRCan
+# Technology configuration tables
 nrcan_techs = config.nrcan_techs
+aeo_techs = config.aeo_techs
 
 # AEO data to shorten things a bit
 aeo_res_class = config.aeo_res_class
@@ -48,6 +49,11 @@ def aggregate(region):
     ##############################################################
     """
 
+    note = (f"Sum of {nrcan_year} secondary energy multiplied by efficiency per technology (NRCan, {nrcan_year}). "
+            "Dual fuel boilers taken to consume only first listed fuel in this calculation. "
+            f"Indexed to projected Ontario population (Statcan, {statcan_year})")
+    reference = f"{nrcan_ref}; {statcan_ref}"
+
     # Table 8: Space Heating Secondary Energy Use by System Type
     t8 = utils.get_data(f"https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/data_e/downloads/comprehensive/Excel/{nrcan_year}/res_{region.lower()}_e_8.xls", skiprows=10)
     t8 = t8.loc[3:17].rename(columns={'Unnamed: 1':'tech'}).drop("Unnamed: 0", axis=1).set_index('tech').dropna()
@@ -58,11 +64,11 @@ def aggregate(region):
 
     # Multiply secondary energy by efficiency to get output heating energy
     # Dual fuel systems make this a little painful
-    dem_pj = t8.copy() # output primary energy (demand) by technology
+    activity = t8.copy()[nrcan_year] # output primary energy (demand) by technology
     tracker = dict() # tracking multiples of the same fuel type
-    for tech in t8.index:
+    for nrcan_tech in activity.index:
 
-        fuel = tech
+        fuel = nrcan_tech
         if "/" in fuel: fuel = fuel.split("/")[0]
 
         eff = t26.loc[fuel, nrcan_year]
@@ -75,21 +81,18 @@ def aggregate(region):
 
         # Demanded primary energy is secondary input energy times efficiency
         # Dual fuel systems are assumed to consume the first listed fuel for simplicity
-        dem_pj.loc[tech, nrcan_year] *= eff
+        activity.loc[nrcan_tech] *= eff
 
     # Index demand to population growth
-    pop = pd.read_excel(this_dir + "input_files/population.xlsx", sheet_name=region, index_col=0)
-    dem_pj = dem_pj[nrcan_year].sum() * pop / pop.loc[nrcan_year]
+    pop = pd.read_excel(input_config + "/population.xlsx", sheet_name=region, index_col=0)
+    dem = activity.sum() * pop / pop.loc[nrcan_year]
 
     # Write to database
-    note = f"Sum of {nrcan_year} secondary energy multiplied by efficiency per technology (NRCan, {nrcan_year}). Dual fuel boilers taken to consume only first listed fuel in this calculation. Indexed to projected Ontario population (Statcan, {statcan_year})"
-    reference = f"{nrcan_ref}; {statcan_ref}"
-
     for period in config.model_periods:
         curs.execute(f"""REPLACE INTO
                     Demand(regions, periods, demand_comm, demand, demand_units, demand_notes,
                     reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                    VALUES('{region}', {period}, '{config.params['demand_commodities']['space heating']}', {float(dem_pj.loc[period])}, 'PJ', '{note}',
+                    VALUES('{region}', {period}, '{config.params['demand_commodities']['space heating']}', {float(dem.loc[period])}, 'PJ', '{note}',
                     '{reference}', {nrcan_year}, 1, 1, 1, {utils.dq_time(period, nrcan_year)}, 1, 1)""")
 
 
@@ -104,7 +107,6 @@ def aggregate(region):
     #   Existing stock efficiencies from NRCan data
     ##############################################################
 
-    reference = nrcan_ref
     out_comm = config.params['demand_commodities']['space heating']
 
     tracker = dict() # tracking multiples of the same nrcan fuel type
@@ -144,7 +146,7 @@ def aggregate(region):
                         Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                         VALUES('{region}', '{in_comm}', '{tech}', {vint}, '{out_comm}', {eff}, '{note}',
-                        '{reference}', {nrcan_year}, 1, 1, 1, 1, 1, 1)""")
+                        '{nrcan_ref}', {nrcan_year}, 1, 1, 1, 1, 1, 1)""")
     
             continue
 
@@ -177,7 +179,7 @@ def aggregate(region):
                 Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
                 reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                 VALUES('{region}', '{in_comm}', '{tech}', {vint}, '{out_comm}', {eff}, '{note}',
-                '{reference}', {nrcan_year}, 1, 1, 1, 1, 1, 1)""")
+                '{nrcan_ref}', {nrcan_year}, 1, 1, 1, 1, 1, 1)""")
     
 
 
@@ -204,20 +206,118 @@ def aggregate(region):
         substocks = nrcan_stocks.split("+")
 
         # Get existing capacity (stock) from nrcan and index to population growth
-        existing_cap = sum([t21.loc[substock, nrcan_year] for substock in substocks]) / 1000 # Munit
-        existing_cap = existing_cap * pop.loc[config.model_periods[0]].values[0] / pop.loc[nrcan_year].values[0]
+        existing_cap = sum([t21.loc[substock, nrcan_year] for substock in substocks]) / 1E6 # Munit
         
-        # Distribute existing capacities evenly over feasible past vintages, relative to data year
+        # Index to population and distribute existing capacities evenly over feasible vintages
         vints = config.tech_vints[tech]
-        existing_cap /= len(vints)
+        existing_cap *= pop.loc[config.model_periods[0]].values[0] / pop.loc[nrcan_year].values[0] / len(vints)
 
         # Write existing capacities to database
         for vint in vints:
             curs.execute(f"""REPLACE INTO
                         ExistingCapacity(regions, tech, vintage, exist_cap, exist_cap_units, exist_cap_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{tech}', {vint}, {existing_cap}, 'Kunit', '{note}',
+                        VALUES('{region}', '{tech}', {vint}, {existing_cap}, 'Munit', '{note}',
                         '{reference}', {nrcan_year}, 1, 1, 1, {utils.dq_time(period, nrcan_year)}, 1, 1)""")
+            
+        
 
-    conn.commit()
+
+
+    """
+    ##############################################################
+        Capacity to Activity
+    ##############################################################
+    """
+
+    # TODO this might be generalisable to other/all subsectors. Will see when tackling those.
+    note = ("(PJ/Munit.yr) Arbitrary but sufficiently high to satisfy demand in all hours. Actual activity cont"
+            "rolled by AnnualCapacityFactor tables and DemandActivity constraint. Result is that all technologi"
+            "es are utilised in consistent proportions throughout the year, according to relative size of annua"
+            "l capacity factors.")
+    
+    # Arbitrary but should be higher than estimates for actual c2a
+    c2a = config.params['space_heating_c2a']
+
+    ## NRCan existing stock
+    for tech, row in nrcan_techs.iterrows():
+        if 'space heating' not in row['end_uses'].split('+'): continue
+
+        curs.execute(f"""REPLACE INTO
+                        CapacityToActivity(regions, tech, c2a, c2a_notes)
+                        VALUES('{region}', '{tech}', {c2a}, '{note}')""")
+    
+    ## AEO future stock
+    for tech, row in aeo_techs.iterrows():
+        if 'space heating' not in row['end_uses'].split('+'): continue
+
+        curs.execute(f"""REPLACE INTO
+                        CapacityToActivity(regions, tech, c2a, c2a_notes)
+                        VALUES('{region}', '{tech}', {c2a}, '{note}')""")
+        
+
+
+    """
+    ##############################################################
+        Annual Capacity Factor
+    ##############################################################
+    """
+
+    ## NRCan existing stock
+    max_note = (f"Annual utilisation of units. (annual secondary energy consumption * efficiency) / (c2a * existing stock) (NRCan, {nrcan_year})")
+    min_note = "99% of MaxACF. " + max_note
+
+    # Get existing capacities from NRCan stock and distribute over past vintages
+    for tech, row in nrcan_techs.iterrows():
+        if 'space heating' not in row['end_uses']: continue
+
+        nrcan_stocks = row.loc['nrcan_stocks']
+        if pd.isna(nrcan_stocks): continue # no existing stock from NRCan
+
+        substocks = nrcan_stocks.split("+")
+
+        existing_cap = sum([fetch[0] for fetch in curs.execute(f"SELECT exist_cap FROM ExistingCapacity WHERE tech == '{tech}'").fetchall()])
+        act = sum([activity.loc[substock] for substock in substocks]) # annual PJ output
+
+        # Annual capacity factor is actual annual activity divided by max possible annual activity from arbitrary c2a
+        acf = act / (existing_cap * c2a)
+
+        for period in config.model_periods:
+            curs.execute(f"""REPLACE INTO
+                            MinAnnualCapacityFactor(regions, periods, tech, output_comm, min_acf, min_acf_notes,
+                            reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
+                            VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf*0.99}, '{min_note}',
+                            '{reference}', {nrcan_year}, 1, 1, 1, {utils.dq_time(period, nrcan_year)}, 1, 1)""")
+            curs.execute(f"""REPLACE INTO
+                            MaxAnnualCapacityFactor(regions, periods, tech, output_comm, max_acf, max_acf_notes,
+                            reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
+                            VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf}, '{max_note}',
+                            '{reference}', {nrcan_year}, 1, 1, 1, {utils.dq_time(period, nrcan_year)}, 1, 1)""")
+    
+    ## AEO future stock
+    # Copy from NRCan existing stock    
+    for tech, row in aeo_techs.iterrows():
+        if 'space heating' not in row['end_uses']: continue
+
+        nrcan_tech = row['nrcan_equiv']
+        note = f"Assumed same as {nrcan_tech}"
+
+        # Get annual capacity factor from equivalent nrcan tech for which we have data
+        acf = curs.execute(f"SELECT max_acf FROM MaxAnnualCapacityFactor WHERE tech == '{nrcan_tech}'").fetchone()[0]
+
+        for period in config.model_periods:
+            curs.execute(f"""REPLACE INTO
+                            MinAnnualCapacityFactor(regions, periods, tech, output_comm, min_acf, min_acf_notes,
+                            reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
+                            VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf*0.99}, '{note}',
+                            '{reference}', {nrcan_year}, 1, 1, 1, {utils.dq_time(period, nrcan_year)}, 1, 1)""")
+            curs.execute(f"""REPLACE INTO
+                            MaxAnnualCapacityFactor(regions, periods, tech, output_comm, max_acf, max_acf_notes,
+                            reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
+                            VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf}, '{note}',
+                            '{reference}', {nrcan_year}, 1, 1, 1, {utils.dq_time(period, nrcan_year)}, 1, 1)""")
+
+
+
+    #conn.commit()
     conn.close()

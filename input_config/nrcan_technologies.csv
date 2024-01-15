@@ -1,8 +1,8 @@
-﻿tech,nrcan_stocks,nrcan_fuels,end_use,description,aeo_class,input_comms
+﻿tech,nrcan_stocks,nrcan_fuels,end_uses,description,aeo_class,input_comms
 R_SPH_OIL-EXS,Heating Oil – Normal Efficiency+Heating Oil – Medium Efficiency+Heating Oil – High Efficiency,Heating Oil – Normal Efficiency+Heating Oil – Medium Efficiency+Heating Oil – High Efficiency,space heating,existing oil,DIST_FA,oil
 R_SPH_NG-EXS,Natural Gas – Normal Efficiency+Natural Gas – Medium Efficiency+Natural Gas – High Efficiency,Natural Gas – Normal Efficiency+Natural Gas – Medium Efficiency+Natural Gas – High Efficiency,space heating,existing natural gas,NG_FA,natural gas
 R_SPH_ELEC-EXS,Electric,Electric,space heating,existing electric,ELEC_RAD,electricity
-R_SPHC_HP-EXS,Heat Pump,Heat Pump,space heating and cooling,existing heat pump,ELEC_HP,electricity
+R_SPHC_HP-EXS,Heat Pump,Heat Pump,space heating+space cooling,existing heat pump,ELEC_HP,electricity
 R_SPH_OTH-EXS,Other1,Other1,space heating,existing other (LPG),LPG_FA,lpg
 R_SPH_WOOD-EXS,Wood,Wood,space heating,existing wood,WOOD_HT,wood
 R_SPH_WOD-ELC-EXS,Wood/Electric,Wood+Electricity,water heating,existing dual wood-electric,WOOD_HT,wood+electricity
