@@ -9,12 +9,16 @@ import os
 import utils
 from scipy.special import gamma
 from setup import config
-import aggregate_generic
-import aggregate_space_heating
+import all_subsectors
+import space_heating
+import space_cooling
+import water_heating
+#import lighting
+#import appliances
 
 this_dir = os.path.realpath(os.path.dirname(__file__)) + "/"
 input_config = this_dir + 'input_config/'
-schema_file = this_dir + "canoe_schema.sql"
+schema_file = input_config + "canoe_schema.sql"
 database_file = this_dir + "residential.sqlite"
 
 # Check if database exists or needs to be built
@@ -30,7 +34,12 @@ if build_db: curs.executescript(open(schema_file, 'r').read())
 conn.commit()
 conn.close()
 
-aggregate_generic.aggregate()
-aggregate_generic.aggregate_region("ON")
-aggregate_space_heating.aggregate("ON")
-aggregate_generic.aggregate_post()
+all_subsectors.aggregate()
+all_subsectors.aggregate_region("ON")
+space_heating.aggregate("ON")
+space_cooling.aggregate("ON")
+water_heating.aggregate("ON")
+# lighting.aggregate("ON")
+# appliances.aggregate("ON")
+all_subsectors.aggregate_post()
+all_subsectors.aggregate_region_post("ON")

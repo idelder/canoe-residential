@@ -13,21 +13,39 @@ import requests
 import xmltodict
 import json
 import math
+from setup import config
 
 
 
 this_dir = os.path.realpath(os.path.dirname(__file__)) + "/"
 cache_dir = this_dir + "download_cache/"
-excel_template = this_dir + 'Template spreadsheet (make a copy).xlsx'
+input_config = this_dir + "input_config/"
+excel_template = input_config + 'Template spreadsheet (make a copy).xlsx'
 
 
 
 # Cleans up strings for filenames, databases, etc.
 def string_cleaner(string):
 
-    clean_string = ''.join(letter for letter in string if letter in '- ()' or letter.isalnum())
+    return ''.join(letter for letter in string if letter in '- /()–' or letter.isalnum())
 
-    return clean_string
+
+
+def string_letters(string):
+
+    return ''.join(letter for letter in string_cleaner(string) if letter not in '123456789')
+
+
+
+def clean_index(df):
+
+    df.index = [string_letters(idx) for idx in df.index]
+
+
+
+def compr_db_url(region, table_number):
+
+    return str(config.params['nrcan_url']).replace('<y>', str(config.params['nrcan_data_year'])).replace('<r>', region).replace('<t>', str(table_number))
 
 
 

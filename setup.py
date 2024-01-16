@@ -43,8 +43,12 @@ class config:
         config.aeo_techs = pd.read_csv(config._input_config + 'aeo_technologies.csv', index_col=0)
         config.nrcan_techs = pd.read_csv(config._input_config + 'nrcan_technologies.csv', index_col=0)
         config.regions = pd.read_csv(config._input_config + 'regions.csv', index_col=0)
+        config.fuel_commodities = pd.read_csv(config._input_config + 'fuels.csv', index_col=0)
 
+        config.all_regions = list(config.regions.index.drop('ALL'))
         config.all_techs = [*config.aeo_techs.index.values, *config.nrcan_techs.index.values]
+        config.populations = dict()
+        for region in config.all_regions: config.populations[region] = pd.read_excel(config._input_config + "/population.xlsx", sheet_name=region, index_col=0) 
 
 
     def _get_aeo_data(cls):

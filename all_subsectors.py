@@ -1,5 +1,6 @@
 """
-Gets generic data that may be needed for other subsector aggregation
+Aggregates residential non-subsector-specific data
+Written by Ian David Elder for the CANOE model
 """
 
 from setup import config
@@ -17,13 +18,18 @@ database_file = this_dir + "residential.sqlite"
 
 
 # Shortens lines a bit
+nrcan_techs = config.nrcan_techs
 aeo_techs = config.aeo_techs
 aeo_res_class = config.aeo_res_class
 aeo_res_equip = config.aeo_res_equip
+fuel_commodities = config.fuel_commodities
+demand_commodities = config.params['demand_commodities']
 aeo_ref = config.params['aeo_reference']
 aeo_year = config.params['aeo_data_year']
 nrcan_year = config.params['nrcan_data_year']
 nrcan_ref = config.params['nrcan_reference']
+statcan_ref = config.params['statcan_reference']
+conversion_factors = config.params['conversion_factors']
 
 
 # For non-regional aggregation
@@ -39,11 +45,11 @@ def aggregate():
     ##############################################################
     """
 
-    for desc, comm in config.params['fuel_commodities'].items():
+    for fuel, row in fuel_commodities.iterrows():
         curs.execute(f"""REPLACE INTO
                     commodities(comm_name, flag, comm_desc)
-                    VALUES('{comm}', 'p', '(PJ) residential {desc}')""")
-    for desc, comm in config.params['demand_commodities'].items():
+                    VALUES('{row['comm']}', 'p', '(PJ) residential {fuel}')""")
+    for desc, comm in demand_commodities.items():
         curs.execute(f"""REPLACE INTO
                     commodities(comm_name, flag, comm_desc)
                     VALUES('{comm}', 'd', '(PJ) demand for residential {desc}')""")
@@ -87,18 +93,18 @@ def aggregate():
                         LifetimeTech(regions, tech, life, life_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                         VALUES('{region}', '{tech}', {lifetime}, '{note}',
-                        '{aeo_ref}', {aeo_year}, 1, 1, 1, 1, 1, 1)""")
+                        '{aeo_ref}', {aeo_year}, 1, 1, 1, 1, 3, 1)""")
 
     ##############################################################
     # NRCan data (existing)
     ##############################################################
 
-    for tech, row in config.nrcan_techs.iterrows():
+    for tech, row in nrcan_techs.iterrows():
 
-        tech_desc = f"{row.loc['end_uses']} - {row.loc['description']}"
+        tech_desc = f"{row.loc['end_use']} - {row.loc['description']}"
         curs.execute(f"""REPLACE INTO
                         technologies(tech, flag, sector, tech_desc, reference)
-                        VALUES('{tech}', 'p', 'residential', '{tech_desc}', '{aeo_ref}')""")
+                        VALUES('{tech}', 'p', 'residential', '{tech_desc}', '{nrcan_ref}')""")
 
         # Get equivalent future tech to this existing tech to pull AEO data
         aeo_class = row.loc['aeo_class']
@@ -126,7 +132,7 @@ def aggregate():
 
     conn.commit()
     conn.close()
-            
+        
 
 
 # For region-specific aggregation
@@ -144,7 +150,7 @@ def aggregate_region(region):
 
     cens_div = config.regions.loc[region, 'us_census_div']
 
-    note = "(PJ/PJ)"
+    note = "(PJ/PJ)" # TODO unify units
     curr = config.params['aeo_currency']
     curr_year = config.params['aeo_currency_year']
 
@@ -158,7 +164,7 @@ def aggregate_region(region):
         aeo_class = row['aeo_class']
         aeo_equip = row['aeo_equip']
 
-        in_comm = config.params['fuel_commodities'][row['input_comm']]
+        in_comm = fuel_commodities.loc[row['fuel'], 'comm']
 
         if type(df0) is pd.DataFrame: df1 = df0.loc[aeo_equip]
         elif type(df0) is pd.Series: df1 = df0 # only one row remaining
@@ -184,7 +190,7 @@ def aggregate_region(region):
                         CostInvest(regions, tech, vintage, data_cost_invest, data_cost_year, data_curr,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                         VALUES('{region}', '{tech}', {vint}, {cost_invest}, {curr_year}, '{curr}',
-                        '{aeo_ref}', {aeo_year}, 1, 1, 1, 1, 1, 1)""")
+                        '{aeo_ref}', {aeo_year}, 1, 1, 1, 1, 3, 1)""")
             
             ## CostFixed
             cost_fixed = row['cost_fixed']
@@ -194,27 +200,57 @@ def aggregate_region(region):
                                 CostFixed(regions, periods, tech, vintage, data_cost_fixed, data_cost_year, data_curr,
                                 reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                                 VALUES('{region}', {period}, '{tech}', {vint}, {cost_fixed}, {curr_year}, '{curr}',
-                                '{aeo_ref}', {aeo_year}, 1, 1, 1, 1, 1, 1)""")
+                                '{aeo_ref}', {aeo_year}, 1, 1, 1, 1, 3, 1)""")
 
 
             # For each end use the technology supplies (heat pumps do heating and cooling)
-            for i in range(len(end_uses)):
+            for e in range(len(end_uses)):
 
-                end_use = end_uses[i]
-                end_use_id = end_use_ids[i]
+                end_use = end_uses[e]
+                end_use_id = end_use_ids[e]
 
-                out_comm = config.params['demand_commodities'][end_use]
+                out_comm = demand_commodities[end_use]
                 
                 if type(df2) is pd.DataFrame: eff = df2.loc[(df2['End Use'] == int(end_use_id))]['Efficiency'].values[0]
                 elif type(df2) is pd.Series: eff = df2['Efficiency'] # only one row remaining
 
-                ## Efficiency
+                ## Default Efficiency
                 curs.execute(f"""REPLACE INTO
                         Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                         VALUES('{region}', '{in_comm}', '{tech}', {vint}, '{out_comm}', {eff}, '{eff_metric}',
-                        '{aeo_ref}', {aeo_year}, 1, 1, 1, 1, 1, 1)""")
+                        '{aeo_ref}', {aeo_year}, 1, 1, 1, 1, 3, 1)""")
+                
+
     
+    """
+    ##############################################################
+        Capacity to Activity
+    ##############################################################
+    """
+
+    ## Adding arbitrary c2a as a default value to all technologies
+    note = ("(PJ/Munit.yr) Arbitrary but sufficiently high to satisfy demand in all hours. Actual activity cont"
+            "rolled by AnnualCapacityFactor tables and DemandActivity constraint. Result is that all technologi"
+            "es are utilised in consistent proportions throughout the year, according to relative size of annua"
+            "l capacity factors.")
+    
+    # Arbitrary but must be large enough to satisfy peak demand
+    c2a = config.params['arbitrary_c2a']
+
+    ## NRCan existing stock
+    for tech, row in nrcan_techs.iterrows():
+        curs.execute(f"""REPLACE INTO
+                        CapacityToActivity(regions, tech, c2a, c2a_notes)
+                        VALUES('{region}', '{tech}', {c2a}, '{note}')""")
+
+    ## AEO future stock
+    for tech, row in aeo_techs.iterrows():
+        curs.execute(f"""REPLACE INTO
+                        CapacityToActivity(regions, tech, c2a, c2a_notes)
+                        VALUES('{region}', '{tech}', {c2a}, '{note}')""")
+        
+
 
     conn.commit()
     conn.close()
@@ -239,11 +275,8 @@ def aggregate_post():
     # Get emissions factors for fuels in ktCO2eq/PJ_in
     emis_fact = pd.read_excel("input_data/ghg-emission-factors-hub.xlsx", skiprows=13, nrows=76, index_col=2)[['CO2 Factor', 'CH4 Factor', 'N2O Factor']].iloc[1::].dropna()
     emis_fact = emis_fact[pd.to_numeric(emis_fact['CO2 Factor'], errors='coerce').notnull()]
-    for fact in emis_fact.columns: emis_fact[fact] *= config.params['epa_conversion_factors'][fact.strip(' Factor')] * config.params['gwp'][fact.strip(' Factor')]
+    for fact in emis_fact.columns: emis_fact[fact] *= conversion_factors['epa_units'][fact.strip(' Factor')] * conversion_factors['gwp'][fact.strip(' Factor')]
     emis_fact[emis_comm] = emis_fact.sum(axis=1)
-    
-    # Fuel translator
-    epa_fuels = pd.read_csv(input_config + 'epa_fuels.csv', index_col=0)
 
     for tech in config.all_techs:
 
@@ -253,8 +286,8 @@ def aggregate_post():
         for row in rows:
 
             # Input fuel by epa naming convention
-            epa_fuel = epa_fuels.loc[row[1], 'epa_fuel']
-            if pd.isna(epa_fuel): continue # doesn't need emissionsactivity
+            epa_fuel = fuel_commodities.loc[fuel_commodities['comm'] == row[1], 'epa_fuel'].values[0]
+            if pd.isna(epa_fuel): continue # doesn't need emissions
 
             # EmissionActivity is tied to OUTPUT energy so divide by efficiency
             emis_act = emis_fact.loc[epa_fuel, emis_comm] / row[5]
@@ -267,6 +300,61 @@ def aggregate_post():
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                         VALUES('{row[0]}', '{emis_comm}', '{row[1]}', '{row[2]}', {row[3]}, '{row[4]}', {emis_act}, '{emis_units}', '{note}',
                         '{config.params['epa_reference']}', {config.params['epa_year']}, 2, 1, 1, 1, 1, 3)""")
+            
+
+
+    conn.commit()
+    conn.close()
+
+
+
+# For non-regional post-subsector aggregation
+def aggregate_region_post(region):
+
+    # Connect to the new database file
+    conn = sqlite3.connect(database_file)
+    curs = conn.cursor() # Cursor object interacts with the sqlite db
+
+    """
+    ##############################################################
+        Annual Capacity Factor
+    ##############################################################
+    """
+
+    reference = f"{nrcan_ref}; {statcan_ref}"
+        
+    ## AEO future stock
+    # Copy from NRCan existing stock    
+    for tech, row in aeo_techs.iterrows():
+        if pd.isna(row['nrcan_equiv']): continue # no NRCan equivalent given
+        
+        end_uses = row['end_uses'].split('+')
+        nrcan_techs = row['nrcan_equiv'].split('+')
+
+        for e in range(len(end_uses)):
+            
+            end_use = end_uses[e]
+            nrcan_tech = nrcan_techs[e]
+
+            out_comm = demand_commodities[end_use]
+            
+            note = f"Assumed same as {nrcan_techs[e]}"
+
+            # Get annual capacity factor from equivalent nrcan tech for which we have data
+            acf = curs.execute(f"SELECT max_acf FROM MaxAnnualCapacityFactor WHERE tech == '{nrcan_tech}'").fetchone()[0]
+
+            for period in config.model_periods:
+                curs.execute(f"""REPLACE INTO
+                                MinAnnualCapacityFactor(regions, periods, tech, output_comm, min_acf, min_acf_notes,
+                                reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
+                                VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf*0.99}, '{note}',
+                                '{reference}', {nrcan_year}, 2, 1, 1, {utils.dq_time(period, nrcan_year)}, 3, 3)""")
+                curs.execute(f"""REPLACE INTO
+                                MaxAnnualCapacityFactor(regions, periods, tech, output_comm, max_acf, max_acf_notes,
+                                reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
+                                VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf}, '{note}',
+                                '{reference}', {nrcan_year}, 2, 1, 1, {utils.dq_time(period, nrcan_year)}, 3, 3)""")
+            
 
 
     conn.commit()

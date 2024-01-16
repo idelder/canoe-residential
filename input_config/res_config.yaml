@@ -23,14 +23,7 @@ demand_commodities:
   'cooking ranges': 'D_R_APP_COOK_RNG'
   'other appliances': 'D_R_APP_OTH'
 
-fuel_commodities:
-  'wood': 'R_WOOD'
-  'electricity': 'R_ELC'
-  'lpg': 'R_LPG'
-  'natural gas': 'R_NG'
-  'oil': 'R_OIL'
-  'ethos': 'R_ethos'
-
+nrcan_url: "https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/data_e/downloads/comprehensive/Excel/<y>/res_<r>_e_<t>.xls"
 nrcan_reference: Comprehensive Energy Use Database. Government of Canada, Natural Resources Canada. (2020) https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/menus/trends/comprehensive_tables/list.cfm
 nrcan_data_year: 2020
 
@@ -47,13 +40,18 @@ epa_reference: "US EPA. (2023, March). GHG Emission Factors Hub [Overviews and F
 epa_year: 2023
 emissions_commodity: 'CO2eq'
 emission_activity_units: 'ktCO2eq/PJ'
-epa_conversion_factors:
-  'CO2': 0.948 # kg/MMBtu to kt/PJ
-  'CH4': 0.000948 # g/MMBtu to kt/PJ
-  'N2O': 0.000948 # g/MMBtu to kt/PJ
-gwp:
-  'CO2': 1 # to CO2eq 100y GWP
-  'CH4': 25 # to CO2eq 100y GWP
-  'N2O': 298 # to CO2eq 100y GWP
 
-space_heating_c2a: 1000
+conversion_factors:
+  epa_units:
+    'CO2': 0.948 # kg/MMBtu to kt/PJ
+    'CH4': 0.000948 # g/MMBtu to kt/PJ
+    'N2O': 0.000948 # g/MMBtu to kt/PJ
+  gwp:
+    'CO2': 1 # to CO2eq 100y GWP
+    'CH4': 25 # to CO2eq 100y GWP
+    'N2O': 298 # to CO2eq 100y GWP
+  efficiency: # to PJ/PJ
+    'EER': 0.293 # from kBtu/kWh
+
+# Arbitrary large such that peak demand is satisfied
+arbitrary_c2a: 2000
