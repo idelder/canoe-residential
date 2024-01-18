@@ -1,0 +1,29 @@
+﻿tech,description,metric,units,existing,2022,2030,2040,2050
+R_LGT_INC,incandescent bulb (60W),efficacy,lm/W,14.2,,,,
+R_LGT_INC,incandescent bulb (60W),lamp_life,hours,1000,,,,
+R_LGT_INC,incandescent bulb (60W),cost_install,USD2022/klm,0.35,,,,
+R_LGT_INC,incandescent bulb (60W),cost_maintain,USD2022/klmy,0.18,,,,
+R_LGT_HAL,halogen bulb (60W inc-equiv),efficacy,lm/W,17.4,,,,
+R_LGT_HAL,halogen bulb (60W inc-equiv),lamp_life,hours,1000,,,,
+R_LGT_HAL,halogen bulb (60W inc-equiv),cost_install,USD2022/klm,6.54,,,,
+R_LGT_HAL,halogen bulb (60W inc-equiv),cost_maintain,USD2022/klmy,4.06,,,,
+R_LGT_CFL-TYP,compact fluorescent bulb (60W inc-equiv) typical efficiency,efficacy,lm/W,68.5,69.2,72,75.7,79.6
+R_LGT_CFL-TYP,compact fluorescent bulb (60W inc-equiv) typical efficiency,lamp_life,hours,10000,10000,10000,10000,10000
+R_LGT_CFL-TYP,compact fluorescent bulb (60W inc-equiv) typical efficiency,cost_install,USD2022/klm,6,5.94,5.71,5.43,5.17
+R_LGT_CFL-TYP,compact fluorescent bulb (60W inc-equiv) typical efficiency,cost_maintain,USD2022/klmy,0.46,,,,
+R_LGT_CFL-HEF,compact fluorescent bulb (60W inc-equiv) high efficiency,efficacy,lm/W,,71.2,74.1,77.8,81.8
+R_LGT_CFL-HEF,compact fluorescent bulb (60W inc-equiv) high efficiency,lamp_life,hours,,12000,12000,12000,12000
+R_LGT_CFL-HEF,compact fluorescent bulb (60W inc-equiv) high efficiency,cost_install,USD2022/klm,,5.01,4.81,4.57,4.35
+R_LGT_CFL-HEF,compact fluorescent bulb (60W inc-equiv) high efficiency,cost_maintain,USD2022/klmy,,0.32,0.31,0.29,0.28
+R_LGT_LED-TYP,led bulb (60W inc-equiv) typical efficiency,efficacy,lm/W,87.1,90,108.9,138.6,160.7
+R_LGT_LED-TYP,led bulb (60W inc-equiv) typical efficiency,lamp_life,hours,21000,14000,14000,14000,14000
+R_LGT_LED-TYP,led bulb (60W inc-equiv) typical efficiency,cost_install,USD2022/klm,5.68,4.9,4.04,3.56,3.07
+R_LGT_LED-TYP,led bulb (60W inc-equiv) typical efficiency,cost_maintain,USD2022/klmy,0.18,0.22,0.18,0.16,0.14
+R_LGT_LED-HEF,led bulb (60W inc-equiv) high efficiency,efficacy,lm/W,,100,120.9,154,178.6
+R_LGT_LED-HEF,led bulb (60W inc-equiv) high efficiency,lamp_life,hours,,18000,18000,18000,18000
+R_LGT_LED-HEF,led bulb (60W inc-equiv) high efficiency,cost_install,USD2022/klm,,6.65,5.49,4.83,4.17
+R_LGT_LED-HEF,led bulb (60W inc-equiv) high efficiency,cost_maintain,USD2022/klmy,,0.24,0.2,0.17,0.15
+R_LGT_T12,linear fluorescent lamp (T12),efficacy,lm/W,72,,,,
+R_LGT_T12,linear fluorescent lamp (T12),lamp_life,hours,15000,,,,
+R_LGT_T12,linear fluorescent lamp (T12),cost_install,USD2022/klm,10.21,,,,
+R_LGT_T12,linear fluorescent lamp (T12),cost_maintain,USD2022/klmy,0.47,,,,

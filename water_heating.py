@@ -12,7 +12,6 @@ import sqlite3
 from setup import config
 
 this_dir = os.path.realpath(os.path.dirname(__file__)) + "/"
-input_config = this_dir + 'input_config/'
 schema_file = this_dir + "canoe_schema.sql"
 database_file = this_dir + "residential.sqlite"
 
@@ -139,7 +138,7 @@ def aggregate(region):
                         ExistingCapacity(regions, tech, vintage, exist_cap, exist_cap_units, exist_cap_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                         VALUES('{region}', '{tech}', {vint}, {existing_cap}, 'Munit', '{note}',
-                        '{reference}', {nrcan_year}, 1, 1, 1, {utils.dq_time(period, nrcan_year)}, 1, 1)""")
+                        '{reference}', {nrcan_year}, 1, 1, 1, {utils.dq_time(config.model_periods[0], nrcan_year)}, 1, 1)""")
         
 
 
@@ -161,7 +160,7 @@ def aggregate(region):
 
         existing_cap = sum([fetch[0] for fetch in curs.execute(f"SELECT exist_cap FROM ExistingCapacity WHERE tech == '{tech}'").fetchall()])
         act = activity[nrcan_year].loc[nrcan_stock] # annual PJ output
-        c2a = config.params['arbitrary_c2a']
+        c2a = config.params['c2a']['water heating']
 
         # Annual capacity factor is actual annual activity divided by max possible annual activity from arbitrary c2a
         acf = act / (existing_cap * c2a)

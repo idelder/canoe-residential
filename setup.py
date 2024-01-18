@@ -13,8 +13,7 @@ class config:
 
     # File locations
     _this_dir = os.path.realpath(os.path.dirname(__file__)) + "/"
-    _input_config = _this_dir + 'input_config/'
-    _input_data = _this_dir + 'input_data/'
+    _input_files = _this_dir + 'input_files/'
 
     tech_vints = {}
 
@@ -36,26 +35,26 @@ class config:
 
     def _get_params(cls):
         
-        stream = open(config._input_config + "res_config.yaml", 'r')
+        stream = open(config._input_files + "res_config.yaml", 'r')
         config.params = dict(yaml.load(stream, Loader=yaml.Loader))
 
         config.model_periods = list(config.params['model_periods'])
-        config.aeo_techs = pd.read_csv(config._input_config + 'aeo_technologies.csv', index_col=0)
-        config.nrcan_techs = pd.read_csv(config._input_config + 'nrcan_technologies.csv', index_col=0)
-        config.regions = pd.read_csv(config._input_config + 'regions.csv', index_col=0)
-        config.fuel_commodities = pd.read_csv(config._input_config + 'fuels.csv', index_col=0)
+        config.aeo_techs = pd.read_csv(config._input_files + 'aeo_technologies.csv', index_col=0)
+        config.nrcan_techs = pd.read_csv(config._input_files + 'nrcan_technologies.csv', index_col=0)
+        config.regions = pd.read_csv(config._input_files + 'regions.csv', index_col=0)
+        config.fuel_commodities = pd.read_csv(config._input_files + 'fuels.csv', index_col=0)
 
-        config.all_regions = list(config.regions.index.drop('ALL'))
+        config.all_regions = list(config.regions.index.drop('all'))
         config.all_techs = [*config.aeo_techs.index.values, *config.nrcan_techs.index.values]
         config.populations = dict()
-        for region in config.all_regions: config.populations[region] = pd.read_excel(config._input_config + "/population.xlsx", sheet_name=region, index_col=0) 
+        for region in config.all_regions: config.populations[region] = pd.read_excel(config._input_files + "/population.xlsx", sheet_name=region, index_col=0) 
 
 
     def _get_aeo_data(cls):
 
-        config.aeo_res_class = pd.read_excel(config._input_data + 'AEO2023_Reference_case_RDM_technology_menu_rsmess.xlsx',
+        config.aeo_res_class = pd.read_excel(config._input_files + 'AEO2023_Reference_case_RDM_technology_menu_rsmess.xlsx',
                                              sheet_name='RSCLASS', skiprows=18, nrows=31, index_col=20).iloc[1:,1:20]
-        config.aeo_res_equip = pd.read_excel(config._input_data + 'AEO2023_Reference_case_RDM_technology_menu_rsmess.xlsx',
+        config.aeo_res_equip = pd.read_excel(config._input_files + 'AEO2023_Reference_case_RDM_technology_menu_rsmess.xlsx',
                                              sheet_name='RSMEQP', skiprows=21, nrows=1084, index_col=28).iloc[2:,1:28]
 
 

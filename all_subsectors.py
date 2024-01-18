@@ -12,7 +12,7 @@ import sqlite3
 
 
 this_dir = os.path.realpath(os.path.dirname(__file__)) + "/"
-input_config = this_dir + 'input_config/'
+input_files = this_dir + 'input_files/'
 schema_file = this_dir + "canoe_schema.sql"
 database_file = this_dir + "residential.sqlite"
 
@@ -53,6 +53,8 @@ def aggregate():
         curs.execute(f"""REPLACE INTO
                     commodities(comm_name, flag, comm_desc)
                     VALUES('{comm}', 'd', '(PJ) demand for residential {desc}')""")
+
+
 
     """
     ##############################################################
@@ -118,7 +120,7 @@ def aggregate():
         lifetime = round(weibull_l * gamma(1 + 1/weibull_k)) # mean of weibull distribution
 
         # Add feasible vintages to config dictionary
-        config.tech_vints[tech] = utils.feasible_vintages(config.model_periods[0], config.params['period_step'], lifetime)
+        config.tech_vints[tech] = utils.feasible_vintages(config.model_periods[0], lifetime)
 
         note = f"Assumed same as {equiv_tech}"
 
@@ -234,18 +236,23 @@ def aggregate_region(region):
             "rolled by AnnualCapacityFactor tables and DemandActivity constraint. Result is that all technologi"
             "es are utilised in consistent proportions throughout the year, according to relative size of annua"
             "l capacity factors.")
-    
-    # Arbitrary but must be large enough to satisfy peak demand
-    c2a = config.params['arbitrary_c2a']
 
     ## NRCan existing stock
     for tech, row in nrcan_techs.iterrows():
+        end_use = row['end_use']
+        if end_use not in config.params['c2a'].keys(): continue
+
+        c2a = config.params['c2a'][end_use]
         curs.execute(f"""REPLACE INTO
                         CapacityToActivity(regions, tech, c2a, c2a_notes)
                         VALUES('{region}', '{tech}', {c2a}, '{note}')""")
 
     ## AEO future stock
     for tech, row in aeo_techs.iterrows():
+        end_uses = row['end_uses'].split('+')
+        if end_use[0] not in config.params['c2a'].keys(): continue
+
+        c2a = config.params['c2a'][end_uses[0]] # Must be the same for all end uses anyway
         curs.execute(f"""REPLACE INTO
                         CapacityToActivity(regions, tech, c2a, c2a_notes)
                         VALUES('{region}', '{tech}', {c2a}, '{note}')""")
@@ -273,7 +280,7 @@ def aggregate_post():
     emis_units = config.params['emission_activity_units']
 
     # Get emissions factors for fuels in ktCO2eq/PJ_in
-    emis_fact = pd.read_excel("input_data/ghg-emission-factors-hub.xlsx", skiprows=13, nrows=76, index_col=2)[['CO2 Factor', 'CH4 Factor', 'N2O Factor']].iloc[1::].dropna()
+    emis_fact = pd.read_excel(input_files+"/ghg-emission-factors-hub.xlsx", skiprows=13, nrows=76, index_col=2)[['CO2 Factor', 'CH4 Factor', 'N2O Factor']].iloc[1::].dropna()
     emis_fact = emis_fact[pd.to_numeric(emis_fact['CO2 Factor'], errors='coerce').notnull()]
     for fact in emis_fact.columns: emis_fact[fact] *= conversion_factors['epa_units'][fact.strip(' Factor')] * conversion_factors['gwp'][fact.strip(' Factor')]
     emis_fact[emis_comm] = emis_fact.sum(axis=1)

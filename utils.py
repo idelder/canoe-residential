@@ -12,15 +12,16 @@ import pandas as pd
 import requests
 import xmltodict
 import json
-import math
 from setup import config
+import urllib.request
+import zipfile
 
 
 
 this_dir = os.path.realpath(os.path.dirname(__file__)) + "/"
 cache_dir = this_dir + "download_cache/"
-input_config = this_dir + "input_config/"
-excel_template = input_config + 'Template spreadsheet (make a copy).xlsx'
+input_files = this_dir + 'input_files/'
+excel_template = input_files + 'Template spreadsheet (make a copy).xlsx'
 
 
 
@@ -45,8 +46,60 @@ def clean_index(df):
 
 def compr_db_url(region, table_number):
 
-    return str(config.params['nrcan_url']).replace('<y>', str(config.params['nrcan_data_year'])).replace('<r>', region).replace('<t>', str(table_number))
+    return str(config.params['nrcan_url']).replace('<y>', str(config.params['nrcan_data_year'])).replace('<r>', region.lower()).replace('<t>', str(table_number))
 
+
+
+def get_statcan_table(table, save_as=None, use_cache=True):
+
+    if save_as == None: save_as = f"statcan_{table}.csv"
+    if os.path.splitext(save_as)[1] != ".csv": save_as += ".csv"
+
+    if use_cache and os.path.isfile(cache_dir + save_as):
+
+        try:
+
+            df = pd.read_csv(cache_dir + save_as)
+            
+            print(f"Got Statcan table {table} from local cache.")
+            return df
+        
+        except Exception as e:
+
+            print(f"Could not get Statcan table {table} from local cache. Trying to download instead.")
+
+    # Make a request from the API for the table, returns response status and url for download
+    url = f"https://www150.statcan.gc.ca/t1/wds/rest/getFullTableDownloadCSV/{table}/en"
+    response = requests.get(url).json()
+
+    # If successful, download the table
+    if response['status'] == 'SUCCESS':
+
+        # Download and open the zip file
+        filehandle,_ = urllib.request.urlretrieve(response['object'])
+        zip_file_object = zipfile.ZipFile(filehandle, 'r')
+
+        # Read the table from inside the zip file
+        from_file = zip_file_object.open(f"{table}.csv", "r")
+
+        # Write the table to download cache
+        to_file = open(cache_dir + save_as, "wb")
+        to_file.write(from_file.read())
+
+        # Close files
+        from_file.close()
+        to_file.close()
+        
+        df = pd.read_csv(cache_dir + save_as)
+
+        print(f"Successfully downloaded Statcan table {table}.")
+        return df
+
+    else:
+
+        print(f"Request for {table} from Statcan failed. Status: {response['status']}")
+        return None
+        
 
 
 # Downloads and handles local caching of data sources
@@ -65,7 +118,7 @@ def get_data(url, file_type=None, name=None, use_cache=True, **kwargs):
 
     data = None
     if (use_cache and os.path.isfile(cache_file)):
-
+        
         # Get from existing local cache
         if file_type == "csv": data = pd.read_csv(cache_file, index_col=0)
         elif "xl" in file_type: data = pd.read_excel(cache_file, index_col=0)
@@ -113,12 +166,11 @@ def dq_time(from_year, to_year):
 
 
 
-def feasible_vintages(period, vint_interval, lifetime):
+def feasible_vintages(period, lifetime, vint_interval=config.params['period_step']):
 
-    vint_0 = period - period%vint_interval
+    vint_0 = period - period % vint_interval
 
-    return [*range(vint_0, period - lifetime, -vint_interval)]
-
+    return [*range(int(vint_0), int(period-lifetime), -int(vint_interval))]
     
 
 

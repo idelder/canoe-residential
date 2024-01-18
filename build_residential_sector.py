@@ -13,12 +13,12 @@ import all_subsectors
 import space_heating
 import space_cooling
 import water_heating
-#import lighting
+import lighting
 #import appliances
 
 this_dir = os.path.realpath(os.path.dirname(__file__)) + "/"
-input_config = this_dir + 'input_config/'
-schema_file = input_config + "canoe_schema.sql"
+input_files = this_dir + 'input_files/'
+schema_file = input_files + "canoe_schema.sql"
 database_file = this_dir + "residential.sqlite"
 
 # Check if database exists or needs to be built
@@ -35,11 +35,11 @@ conn.commit()
 conn.close()
 
 all_subsectors.aggregate()
-all_subsectors.aggregate_region("ON")
-space_heating.aggregate("ON")
-space_cooling.aggregate("ON")
-water_heating.aggregate("ON")
-# lighting.aggregate("ON")
-# appliances.aggregate("ON")
+all_subsectors.aggregate_region("on")
+space_heating.aggregate("on")
+space_cooling.aggregate("on")
+water_heating.aggregate("on")
+lighting.aggregate("on")
+# appliances.aggregate("on")
 all_subsectors.aggregate_post()
-all_subsectors.aggregate_region_post("ON")
+all_subsectors.aggregate_region_post("on")
