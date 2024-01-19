@@ -38,7 +38,7 @@ def aggregate(region):
     """
 
     note = (f"Sum of {nrcan_year} secondary energy multiplied by efficiency per technology (NRCan, {nrcan_year}). "
-            f"Indexed to projected Ontario population (Statcan, {statcan_year})")
+            f"Indexed to projected population (Statcan, {statcan_year})")
     reference = f"{nrcan_ref}; {statcan_ref}"
 
     # Table 4: Space Cooling Secondary Energy Use and GHG Emissions by Cooling System Type

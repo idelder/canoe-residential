@@ -1,5 +1,5 @@
 """
-Aggregates data for residential space heating
+Aggregates data for appliances
 Written by Ian David Elder for the CANOE model
 """
 

@@ -29,7 +29,6 @@ nrcan_data_year: 2020
 
 aeo_reference: 'EIA. (2023). Updated Buildings Sector Appliance and Equipment Costs and Efficiency—Reference case [dataset]. https://www.eia.gov/analysis/studies/buildings/equipcosts/'
 aeo_data_year: 2023
-
 aeo_currency_year: 2022
 aeo_currency: 'USD'
 
@@ -54,7 +53,8 @@ conversion_factors:
     'EER': 0.293 # kBtu/kWh to PJ/PJ
   lighting:
     'efficacy': 0.0317 # lm/W to Glmy/PJ
-    'lifetime': 1.142E-4 # hours to days
+    'lifetime': 1.142E-4 # hours to years 1/8760
+    'cost': 1 # $/klm(y) to M$/Glm(y)
 
 # Arbitrary large such that peak demand is satisfied
 c2a:
@@ -63,8 +63,14 @@ c2a:
   'water heating': 2000 # LPG instant water heater close to 2000
   'lighting': 1 # Glmy/Glmy
 
-# From a California residential survey ~1.5h/day.
-lighting_acf: 0.0625
+lighting: 
+  annual_capacity_factor: 0.0667 # 1.6/24
+  acf_reference: "DOE. (2012). Residential Lighting End-Use Consumption Study: Estimation Framework and Initial Estimates. https://www1.eere.energy.gov/buildings/publications/pdfs/ssl/2012_residential-lighting-study.pdf"
+  acf_data_year: 2012
+  acf_note: "1.6 hours per day national average usage from US."
+  on_stock_ref: "IESO. (2018). 2018 Ontario Residential End-Use Survey. IESO. https://ieso.ca/-/media/Files/IESO/Document-Library/research/Ontario-Residential-End-Use-Survey.ashx"
+  usage_ref: "Statistics Canada. (2018, June 27). Use of energy-saving lights, Canada and provinces. https://www150.statcan.gc.ca/t1/tbl1/en/tv.action?pid=3810004801"
+  input_comm: 'electricity'
 
 # Categorising NRCan housing stocks
 housing_categories:

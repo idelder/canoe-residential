@@ -16,6 +16,7 @@ class config:
     _input_files = _this_dir + 'input_files/'
 
     tech_vints = {}
+    lifetimes = {}
 
     _instance = None # singleton pattern
 
@@ -44,10 +45,11 @@ class config:
         config.regions = pd.read_csv(config._input_files + 'regions.csv', index_col=0)
         config.fuel_commodities = pd.read_csv(config._input_files + 'fuels.csv', index_col=0)
 
-        config.all_regions = list(config.regions.index.drop('all'))
+        config.all_regions = list(config.regions.index.drop('ALL'))
         config.all_techs = [*config.aeo_techs.index.values, *config.nrcan_techs.index.values]
+
         config.populations = dict()
-        for region in config.all_regions: config.populations[region] = pd.read_excel(config._input_files + "/population.xlsx", sheet_name=region, index_col=0) 
+        for region in config.all_regions: config.populations[region] = pd.read_excel(config._input_files + "/population.xlsx", sheet_name=region, index_col=0)
 
 
     def _get_aeo_data(cls):

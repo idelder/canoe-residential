@@ -3,12 +3,8 @@ Builds residential sector database
 Written by Ian David Elder for the CANOE model
 """
 
-import pandas as pd
 import sqlite3
 import os
-import utils
-from scipy.special import gamma
-from setup import config
 import all_subsectors
 import space_heating
 import space_cooling
@@ -34,12 +30,13 @@ if build_db: curs.executescript(open(schema_file, 'r').read())
 conn.commit()
 conn.close()
 
+## Aggregate subsectors
 all_subsectors.aggregate()
-all_subsectors.aggregate_region("on")
-space_heating.aggregate("on")
-space_cooling.aggregate("on")
-water_heating.aggregate("on")
-lighting.aggregate("on")
-# appliances.aggregate("on")
+all_subsectors.aggregate_region("ON")
+space_heating.aggregate("ON")
+space_cooling.aggregate("ON")
+water_heating.aggregate("ON")
+lighting.aggregate("ON")
+# appliances.aggregate("ON")
 all_subsectors.aggregate_post()
-all_subsectors.aggregate_region_post("on")
+all_subsectors.aggregate_region_post("ON")

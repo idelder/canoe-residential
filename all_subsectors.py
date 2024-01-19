@@ -58,17 +58,13 @@ def aggregate():
 
     """
     ##############################################################
-        Technologies, LifetimeTech, tech-vintage pairs
+        Technologies, lifetimes, tech-vintage pairs
     ##############################################################
     """
-
-    config.lifetimes = {}
 
     ##############################################################
     # AEO data (new)
     ##############################################################
-
-    note = 'Average of Weibull distribution'
 
     for tech, row in aeo_techs.iterrows():
         
@@ -78,24 +74,21 @@ def aggregate():
                         VALUES('{tech}', 'p', 'residential', '{tech_desc}', '{aeo_ref}')""")
 
         aeo_class = row.loc['aeo_class']
-        end_use_ids = row.loc['end_use_ids'].split('+')
 
         # Get lifetime from mean of weibull distribution
-        weibull_k = aeo_res_class.loc[aeo_res_class['End Use'] == int(end_use_ids[0])].loc[aeo_class, 'Weibull K']
-        weibull_l = aeo_res_class.loc[aeo_res_class['End Use'] == int(end_use_ids[0])].loc[aeo_class, 'Weibull λ']
+        weibull_k = aeo_res_class.loc[aeo_class, 'Weibull K']
+        weibull_l = aeo_res_class.loc[aeo_class, 'Weibull λ']
+
+        # There are double ups of class for heat pumps because two end uses
+        if type(weibull_k) is pd.Series: weibull_k = weibull_k.values[0]
+        if type(weibull_l) is pd.Series: weibull_l = weibull_l.values[0]
 
         lifetime = round(weibull_l * gamma(1 + 1/weibull_k)) # mean of weibull distribution
 
-        # Add feasible vintages to config dictionary
+        # Add lifetimes and feasible vintages to config dictionaries
+        config.lifetimes[tech] = lifetime
         config.tech_vints[tech] = config.model_periods
 
-        ## LifetimeTech
-        for region in config.regions.index:
-            curs.execute(f"""REPLACE INTO
-                        LifetimeTech(regions, tech, life, life_notes,
-                        reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{tech}', {lifetime}, '{note}',
-                        '{aeo_ref}', {aeo_year}, 1, 1, 1, 1, 3, 1)""")
 
     ##############################################################
     # NRCan data (existing)
@@ -111,25 +104,13 @@ def aggregate():
         # Get equivalent future tech to this existing tech to pull AEO data
         aeo_class = row.loc['aeo_class']
         equiv_tech = aeo_techs.loc[aeo_techs['aeo_class']==aeo_class].index.values[0]
-        end_use_ids = aeo_techs.loc[equiv_tech, 'end_use_ids'].split('+')
-        
-        # Get lifetime from mean of weibull distribution
-        weibull_k = aeo_res_class.loc[aeo_res_class['End Use'] == int(end_use_ids[0])].loc[aeo_class, 'Weibull K']
-        weibull_l = aeo_res_class.loc[aeo_res_class['End Use'] == int(end_use_ids[0])].loc[aeo_class, 'Weibull λ']
 
-        lifetime = round(weibull_l * gamma(1 + 1/weibull_k)) # mean of weibull distribution
+        # Copy from equivalent AEO tech
+        lifetime = config.lifetimes[equiv_tech]
 
-        # Add feasible vintages to config dictionary
+        # Add lifetimes and feasible vintages to config dictionaries
+        config.lifetimes[tech] = lifetime
         config.tech_vints[tech] = utils.feasible_vintages(config.model_periods[0], lifetime)
-
-        note = f"Assumed same as {equiv_tech}"
-
-        for region in config.regions.index:
-            curs.execute(f"""REPLACE INTO
-                        LifetimeTech(regions, tech, life, life_notes,
-                        reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{tech}', {lifetime}, '{note}',
-                        '{aeo_ref}', {aeo_year}, 2, 1, 1, 1, 1, 2)""")
             
 
     conn.commit()
@@ -146,7 +127,7 @@ def aggregate_region(region):
 
     """
     ##############################################################
-        Efficiency, CostInvest
+        Efficiency, CostInvest, CostFixed
     ##############################################################
     """
 
@@ -160,6 +141,10 @@ def aggregate_region(region):
     df0 = aeo_res_equip.loc[(aeo_res_equip['Census Division'] == cens_div) | (aeo_res_equip['Census Division'] == 11)]
 
 
+    ##############################################################
+    # AEO data (new)
+    ##############################################################
+
     # All technologies from aeo technologies input csv
     for tech, row in aeo_techs.iterrows():
 
@@ -167,6 +152,16 @@ def aggregate_region(region):
         aeo_equip = row['aeo_equip']
 
         in_comm = fuel_commodities.loc[row['fuel'], 'comm']
+        lifetime = config.lifetimes[tech]
+
+        ## LifetimeTech
+        note = 'Average of Weibull distribution.'
+        for region in config.regions.index:
+            curs.execute(f"""REPLACE INTO
+                        LifetimeTech(regions, tech, life, life_notes,
+                        reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
+                        VALUES('{region}', '{tech}', {lifetime}, '{note}',
+                        '{aeo_ref}', {aeo_year}, 1, 1, 1, 1, 3, 1)""")
 
         if type(df0) is pd.DataFrame: df1 = df0.loc[aeo_equip]
         elif type(df0) is pd.Series: df1 = df0 # only one row remaining
@@ -178,7 +173,7 @@ def aggregate_region(region):
 
 
         # All future periods are valid vintages
-        for vint in config.model_periods:
+        for vint in config.tech_vints[tech]:
             
             if type(df1) is pd.DataFrame:
                 df2 = df1.loc[(df1['First Year']<=vint) & (vint<=df1['Last Year'])]
@@ -198,6 +193,9 @@ def aggregate_region(region):
             cost_fixed = row['cost_fixed']
             if cost_fixed != 0:
                 for period in config.model_periods:
+
+                    if period < vint or vint + lifetime <= period: continue
+
                     curs.execute(f"""REPLACE INTO
                                 CostFixed(regions, periods, tech, vintage, data_cost_fixed, data_cost_year, data_curr,
                                 reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
@@ -222,8 +220,40 @@ def aggregate_region(region):
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                         VALUES('{region}', '{in_comm}', '{tech}', {vint}, '{out_comm}', {eff}, '{eff_metric}',
                         '{aeo_ref}', {aeo_year}, 1, 1, 1, 1, 3, 1)""")
-                
+    
 
+    ##############################################################
+    # NRCan data (existing)
+    ##############################################################
+
+    for tech, row in nrcan_techs.iterrows():
+        
+        ## CostFixed
+        equiv_tech = aeo_techs.loc[aeo_techs['aeo_class']==row['aeo_class']].index.values[0]
+        cost_fixed = aeo_techs.loc[equiv_tech, 'cost_fixed']
+        if cost_fixed == 0: continue
+
+        note = f"Assumed same as {equiv_tech}."
+
+        # Doing this by region so that some regions can be skipped at aggregation phase
+        lifetime = config.lifetimes[tech]
+
+        curs.execute(f"""REPLACE INTO
+                    LifetimeTech(regions, tech, life, life_notes,
+                    reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
+                    VALUES('{region}', '{tech}', {lifetime}, '{note}',
+                    '{aeo_ref}', {aeo_year}, 2, 1, 1, 1, 1, 2)""")
+
+        for vint in config.tech_vints[tech]:
+            for period in config.model_periods:
+
+                if period < vint or vint + lifetime <= period: continue
+
+                curs.execute(f"""REPLACE INTO
+                            CostFixed(regions, periods, tech, vintage, cost_fixed_notes, data_cost_fixed, data_cost_year, data_curr,
+                            reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
+                            VALUES('{region}', {period}, '{tech}', {vint}, '{note}', {aeo_techs.loc[equiv_tech, 'cost_fixed']}, {curr_year}, '{curr}',
+                            '{aeo_ref}', {aeo_year}, 2, 1, 1, 1, 3, 3)""")
     
     """
     ##############################################################

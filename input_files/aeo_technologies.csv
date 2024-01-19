@@ -27,8 +27,8 @@ R_SPH_NG_BLR-HEF,NG_RAD,NG_RAD4,space heating,1,natural gas boiler high efficien
 R_SPH_NG_BLR-TYP,NG_RAD,NG_RAD2,space heating,1,natural gas boiler typical efficiency,160,natural gas,R_SPH_NG-EXS
 R_SPH_NG_FRN-TYP,NG_FA,NG_FA2,space heating,1,natural gas furnace typical efficiency,130,natural gas,R_SPH_NG-EXS
 R_SPH_NG_FRN-HEF,NG_FA,NG_FA4,space heating,1,natural gas furnace high efficiency,130,natural gas,R_SPH_NG-EXS
-R_SPH_OIL_BLR-HEF,DIST_FA,DIST_RAD4,space heating,1,oil boiler high efficiency,170,oil,R_SPH_OIL-EXS
-R_SPH_OIL_BLR-TYP,DIST_FA,DIST_RAD2,space heating,1,oil boiler typical efficiency,170,oil,R_SPH_OIL-EXS
+R_SPH_OIL_BLR-HEF,DIST_RAD,DIST_RAD4,space heating,1,oil boiler high efficiency,170,oil,R_SPH_OIL-EXS
+R_SPH_OIL_BLR-TYP,DIST_RAD,DIST_RAD2,space heating,1,oil boiler typical efficiency,170,oil,R_SPH_OIL-EXS
 R_SPH_OIL_FRN-HEF,DIST_FA,DIST_FA4,space heating,1,oil furnace high efficiency,80,oil,R_SPH_OIL-EXS
 R_SPH_OIL_FRN-TYP,DIST_FA,DIST_FA2,space heating,1,oil furnace typical efficiency,80,oil,R_SPH_OIL-EXS
 R_SPH_WOOD-HEF,WOOD_HT,WOOD_HT4,space heating,1,wood stove high efficiency,190,wood,R_SPH_WOOD-EXS

@@ -77,7 +77,7 @@ def aggregate(region):
     """
 
     note = (f"Sum of {nrcan_year} secondary energy multiplied by efficiency per technology (NRCan, {nrcan_year}). "
-            f"Indexed to projected Ontario population (Statcan, {statcan_year})")
+            f"Indexed to projected population (Statcan, {statcan_year})")
     reference = f"{nrcan_ref}; {statcan_ref}"
 
     # Table 10: Water Heating Secondary Energy Use and GHG Emissions by Energy Source
