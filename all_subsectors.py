@@ -101,11 +101,12 @@ def aggregate():
                         technologies(tech, flag, sector, tech_desc, reference)
                         VALUES('{tech}', 'p', 'residential', '{tech_desc}', '{nrcan_ref}')""")
 
-        # Get equivalent future tech to this existing tech to pull AEO data
+        # Get equivalent future tech
         aeo_class = row.loc['aeo_class']
-        equiv_tech = aeo_techs.loc[aeo_techs['aeo_class']==aeo_class].index.values[0]
+        if pd.isna(aeo_class): continue
 
-        # Copy from equivalent AEO tech
+        # Lifetime from equivalent AEO tech
+        equiv_tech = aeo_techs.loc[aeo_techs['aeo_class']==aeo_class].index.values[0]
         lifetime = config.lifetimes[equiv_tech]
 
         # Add lifetimes and feasible vintages to config dictionaries
@@ -156,12 +157,11 @@ def aggregate_region(region):
 
         ## LifetimeTech
         note = 'Average of Weibull distribution.'
-        for region in config.regions.index:
-            curs.execute(f"""REPLACE INTO
-                        LifetimeTech(regions, tech, life, life_notes,
-                        reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{tech}', {lifetime}, '{note}',
-                        '{aeo_ref}', {aeo_year}, 1, 1, 1, 1, 3, 1)""")
+        curs.execute(f"""REPLACE INTO
+                    LifetimeTech(regions, tech, life, life_notes,
+                    reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
+                    VALUES('{region}', '{tech}', {lifetime}, '{note}',
+                    '{aeo_ref}', {aeo_year}, 1, 1, 1, 1, 3, 1)""")
 
         if type(df0) is pd.DataFrame: df1 = df0.loc[aeo_equip]
         elif type(df0) is pd.Series: df1 = df0 # only one row remaining
@@ -228,8 +228,11 @@ def aggregate_region(region):
 
     for tech, row in nrcan_techs.iterrows():
         
-        ## CostFixed
-        equiv_tech = aeo_techs.loc[aeo_techs['aeo_class']==row['aeo_class']].index.values[0]
+        ## CostFixed from aeo equivalent tech
+        aeo_class = row['aeo_class']
+        if pd.isna(aeo_class): continue
+
+        equiv_tech = aeo_techs.loc[aeo_techs['aeo_class']==aeo_class].index.values[0]
         cost_fixed = aeo_techs.loc[equiv_tech, 'cost_fixed']
         if cost_fixed == 0: continue
 
@@ -274,8 +277,8 @@ def aggregate_region(region):
 
         c2a = config.params['c2a'][end_use]
         curs.execute(f"""REPLACE INTO
-                        CapacityToActivity(regions, tech, c2a, c2a_notes)
-                        VALUES('{region}', '{tech}', {c2a}, '{note}')""")
+                        CapacityToActivity(regions, tech, c2a, c2a_notes, dq_est)
+                        VALUES('{region}', '{tech}', {c2a}, '{note}', 1)""")
 
     ## AEO future stock
     for tech, row in aeo_techs.iterrows():
@@ -284,8 +287,8 @@ def aggregate_region(region):
 
         c2a = config.params['c2a'][end_uses[0]] # Must be the same for all end uses anyway
         curs.execute(f"""REPLACE INTO
-                        CapacityToActivity(regions, tech, c2a, c2a_notes)
-                        VALUES('{region}', '{tech}', {c2a}, '{note}')""")
+                        CapacityToActivity(regions, tech, c2a, c2a_notes, dq_est)
+                        VALUES('{region}', '{tech}', {c2a}, '{note}', 1)""")
         
 
 

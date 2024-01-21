@@ -43,14 +43,10 @@ def aggregate(region):
     reference = f"{nrcan_ref}; {statcan_ref}"
 
     # Table 8: Space Heating Secondary Energy Use by System Type
-    t8 = utils.get_data(utils.compr_db_url(region, 8), skiprows=10)
-    t8_sec = t8.loc[3:17].rename(columns={'Unnamed: 1':'tech'}).drop("Unnamed: 0", axis=1).set_index('tech').dropna()
-    utils.clean_index(t8_sec)
+    t8_sec = utils.get_compr_db(region, 8, 3, 17)
 
     # Table 26: Heating System Stock Efficiencies
-    t26 = utils.get_data(utils.compr_db_url(region, 26), skiprows=10)
-    t26_eff = t26.loc[2:27].rename(columns={'Unnamed: 1':'tech'}).drop("Unnamed: 0", axis=1).set_index('tech').dropna()/100
-    utils.clean_index(t26_eff)
+    t26_eff = utils.get_compr_db(region, 26, 2, 27)/100
 
     # Multiply secondary energy by efficiency to get output heating energy
     # Dual fuel systems make this a little painful
@@ -177,9 +173,7 @@ def aggregate(region):
     """
 
     # Table 21: Heating System Stock by Building Type and Heating System Type
-    t21 = utils.get_data(utils.compr_db_url(region, 21), skiprows=10)
-    t21_stk = t21.loc[16:30].rename(columns={'Unnamed: 1':'tech'}).drop("Unnamed: 0", axis=1).set_index('tech').dropna()*1000 # units
-    utils.clean_index(t21_stk)
+    t21_stk = utils.get_compr_db(region, 21, 16, 30)/1000 # Munit
 
     # Notes for database
     note = f"{nrcan_year} stock (NRCan, {nrcan_year}) indexed to population (Statcan, {statcan_year}) and distributed evenly over feasible past vintages."
@@ -195,7 +189,7 @@ def aggregate(region):
         substocks = nrcan_stocks.split("+")
 
         # Get existing capacity (stock) from nrcan and index to population growth
-        existing_cap = sum([t21_stk.loc[substock, nrcan_year] for substock in substocks]) / 1E6 # Munit
+        existing_cap = sum([t21_stk.loc[substock, nrcan_year] for substock in substocks])
         
         # Index to population and distribute existing capacities evenly over feasible vintages
         vints = config.tech_vints[tech]

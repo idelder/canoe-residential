@@ -99,11 +99,22 @@ def get_statcan_table(table, save_as=None, use_cache=True):
 
         print(f"Request for {table} from Statcan failed. Status: {response['status']}")
         return None
-        
+    
+
+
+def get_compr_db(region, table_number, first_row=0, last_row=-1):
+
+    table = get_data(compr_db_url(region, table_number), skiprows=10)
+    table = table.loc[first_row:last_row].drop("Unnamed: 0", axis=1).set_index('Unnamed: 1').dropna()
+    table.index.name = None
+    clean_index(table)
+
+    return table
+
 
 
 # Downloads and handles local caching of data sources
-def get_data(url, file_type=None, name=None, use_cache=True, **kwargs):
+def get_data(url, file_type=None, cache_file_type=None, name=None, use_cache=True, **kwargs):
 
     # Get the original file name
     if name == None: name = url.split("/")[-1].split("\\")[-1]
@@ -111,18 +122,22 @@ def get_data(url, file_type=None, name=None, use_cache=True, **kwargs):
 
     file_type = file_type.lower()
 
-    if file_type == "xml": file_type = "json"
-    if file_type == "xls": file_type = "xlsx"
-    if url.split(".")[-1] != file_type: name = os.path.splitext(name)[0] + "."+file_type
+    if cache_file_type == None:
+        if file_type == "xml": cache_file_type = "json"
+        elif file_type == "xls": cache_file_type = "xlsx"
+        else: cache_file_type = file_type
+    
+    # If file type is different from new file type
+    if url.split(".")[-1] != cache_file_type: name = os.path.splitext(name)[0] + "."+cache_file_type
     cache_file = cache_dir + name
 
     data = None
     if (use_cache and os.path.isfile(cache_file)):
         
         # Get from existing local cache
-        if file_type == "csv": data = pd.read_csv(cache_file, index_col=0)
-        elif "xl" in file_type: data = pd.read_excel(cache_file, index_col=0)
-        elif file_type == "xml": data = json.load(open(cache_file))
+        if cache_file_type == "csv": data = pd.read_csv(cache_file, index_col=0)
+        elif "xl" in cache_file_type: data = pd.read_excel(cache_file, index_col=0)
+        elif cache_file_type == "xml": data = json.load(open(cache_file))
         print(f"Got {name} from local cache.")
         
     else:
@@ -136,9 +151,9 @@ def get_data(url, file_type=None, name=None, use_cache=True, **kwargs):
         try:
             if not os.path.exists(cache_dir): os.mkdir(cache_dir)
 
-            if file_type == "csv": data.to_csv(cache_file)
-            elif "xl" in file_type: data.to_excel(cache_file)
-            elif file_type == "xml":
+            if cache_file_type == "csv": data.to_csv(cache_file)
+            elif "xl" in cache_file_type: data.to_excel(cache_file)
+            elif cache_file_type == "xml":
                 with open(cache_file, 'w') as outfile: outfile.write(data)
             print(f"Cached {name}.")
         except Exception as e:

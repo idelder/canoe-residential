@@ -42,13 +42,10 @@ def aggregate(region):
     reference = f"{nrcan_ref}; {statcan_ref}"
 
     # Table 4: Space Cooling Secondary Energy Use and GHG Emissions by Cooling System Type
-    t4 = utils.get_data(utils.compr_db_url(region, 4), skiprows=10)
-    t4_sec = t4.loc[3:4].rename(columns={'Unnamed: 1':'tech'}).drop("Unnamed: 0", axis=1).set_index('tech').dropna()
-    utils.clean_index(t4_sec)
+    t4_sec = utils.get_compr_db(region, 4, 3, 4)
 
     # Table 27: Cooling System Stock by Type, New Unit Efficiencies, Stock Efficiencies and Unit Capacity Ratio
-    t27 = utils.get_data(utils.compr_db_url(region, 27), skiprows=10)
-    t27_stk_eff = t27.loc[15:16].rename(columns={'Unnamed: 1':'tech'}).drop("Unnamed: 0", axis=1).set_index('tech').dropna()
+    t27_stk_eff = utils.get_compr_db(region, 27, 15, 16)
     t27_stk_eff.index=t4_sec.index
     t27_stk_eff *= config.params['conversion_factors']['efficiency']['EER']
 
@@ -76,10 +73,6 @@ def aggregate(region):
     ##############################################################
     """
 
-    t27_new_eff = t27.loc[15:16].rename(columns={'Unnamed: 1':'tech'}).drop("Unnamed: 0", axis=1).set_index('tech').dropna()
-    t27_new_eff.index=t4_sec.index
-    t27_new_eff *= config.params['conversion_factors']['efficiency']['EER']
-
     out_comm = config.params['demand_commodities']['space cooling']
 
     for tech, row in config.nrcan_techs.iterrows():
@@ -97,7 +90,7 @@ def aggregate(region):
         for vint in config.tech_vints[tech]:
             
             # Efficiency is new build efficiency for that year, or 2020 at the latest
-            eff = t27_new_eff.loc[nrcan_stock, min(vint, max(np.array(t27_new_eff.columns, dtype=int)))]
+            eff = t27_stk_eff.loc[nrcan_stock, min(vint, max(np.array(t27_stk_eff.columns, dtype=int)))]
 
             curs.execute(f"""REPLACE INTO
                 Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
@@ -114,7 +107,7 @@ def aggregate(region):
     """
 
     # Existing cooling stock from NRCan data
-    t27_stk = t27.loc[3:4].rename(columns={'Unnamed: 1':'tech'}).drop("Unnamed: 0", axis=1).set_index('tech').dropna()*1000 # units
+    t27_stk = utils.get_compr_db(region, 27, 3, 4)/1000 # Munit
 
     # Notes for database
     note = f"{nrcan_year} stock (NRCan, {nrcan_year}) indexed to population (Statcan, {statcan_year}) and distributed evenly over feasible past vintages."
@@ -127,7 +120,7 @@ def aggregate(region):
         nrcan_stock = row.loc['nrcan_stocks']
 
         # Get existing capacity (stock) from nrcan and index to population growth
-        existing_cap = t27_stk.loc[nrcan_stock, nrcan_year] / 1E6 # Munit
+        existing_cap = t27_stk.loc[nrcan_stock, nrcan_year]
         
         # Index to population and distribute existing capacities evenly over feasible vintages
         vints = config.tech_vints[tech]

@@ -90,6 +90,8 @@ def aggregate(region):
     ##############################################################
     """
 
+    # Mostly arbitrary but affects lifetime
+
     acf_note = config.params['lighting']['acf_note']
     min_note = acf_note + " 99% of max acf."
     acf_ref = config.params['lighting']['acf_reference']
@@ -119,6 +121,10 @@ def aggregate(region):
     ##############################################################
     """
 
+    # The major challenge of lighting is estimating existing capacity of lighting types
+    # If we had better data for this everything would be fine... but we only have for Ontario
+    # So we take stock data for Ontario and index it to usage rates from a Statcan survey per province
+
     note = (f"{nrcan_year} secondary energy (NRCan, {nrcan_year}) multiplied by average efficacy (efficiency) of existing lighting stock. "
             f"Indexed to projected population (Statcan, {statcan_year})")
     reference = f"{nrcan_ref}; {statcan_ref}"
@@ -136,9 +142,7 @@ def aggregate(region):
     for col in reg_shares[['share_sf','share_mf']].columns: reg_shares[col] /= reg_shares[col].sum() # reset to sum 100%
 
     # Table 14: Total Households by Building Type and Energy Source
-    t14 = utils.get_data(utils.compr_db_url(region, 14), skiprows=10)
-    t14 = t14.loc[9:12].rename(columns={'Unnamed: 1':'housing_type'}).drop("Unnamed: 0", axis=1).set_index('housing_type').dropna()[2018] / 100 # % shares
-    utils.clean_index(t14)
+    t14 = utils.get_compr_db(region, 14, 9, 12)[2018] / 100 # % shares
     
     # Aggregate subcategories of housing into single-family and multi-family
     for cat, subcats in config.params['housing_categories'].items():
@@ -166,8 +170,7 @@ def aggregate(region):
         exs_eff += exs_techs.loc[tech_exs, 'efficacy'] * reg_shares.loc[tech_exs, 'share_tot']
 
     # Table 3: Lighting Secondary Energy Use and GHG Emissions
-    t3 = utils.get_data(utils.compr_db_url(region, 3), skiprows=10)
-    sec = t3.loc[1][nrcan_year]
+    sec = utils.get_compr_db(region, 3, 1, 1)[nrcan_year].values[0]
 
     # Demand is secondary energy times 2018 average lighting stock efficacy, indexed to population growth
     pop = config.populations[region]

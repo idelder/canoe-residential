@@ -81,9 +81,7 @@ def aggregate(region):
     reference = f"{nrcan_ref}; {statcan_ref}"
 
     # Table 10: Water Heating Secondary Energy Use and GHG Emissions by Energy Source
-    t10 = utils.get_data(utils.compr_db_url(region, 10), skiprows=10)
-    t10_sec = t10.loc[3:7].rename(columns={'Unnamed: 1':'tech'}).drop("Unnamed: 0", axis=1).set_index('tech').dropna()
-    utils.clean_index(t10_sec)
+    t10_sec = utils.get_compr_db(region, 10, 3, 7)
 
     # Activity (PJ output) is secondary energy times efficiency, and demand is sum of activity
     activity = t10_sec.copy()
@@ -111,9 +109,7 @@ def aggregate(region):
     """
 
     # Table 28: Water Heater Stock by Building Type and Energy Source
-    t28 = utils.get_data(utils.compr_db_url(region, 28), skiprows=10)
-    t28_stk = t28.loc[15:20].rename(columns={'Unnamed: 1':'tech'}).drop("Unnamed: 0", axis=1).set_index('tech').dropna()*1000 # units
-    utils.clean_index(t28_stk)
+    t28_stk = utils.get_compr_db(region, 28, 15, 20)/1E6 # Munit
 
     # Notes for database
     note = f"{nrcan_year} stock (NRCan, {nrcan_year}) indexed to population (Statcan, {statcan_year}) and distributed evenly over feasible past vintages."
@@ -126,7 +122,7 @@ def aggregate(region):
         nrcan_stock = row.loc['nrcan_stocks']
 
         # Get existing capacity (stock) from nrcan and index to population growth
-        existing_cap = t28_stk.loc[nrcan_stock, nrcan_year] / 1E6 # Munit
+        existing_cap = t28_stk.loc[nrcan_stock, nrcan_year]
         
         # Index to population and distribute existing capacities evenly over feasible vintages
         vints = config.tech_vints[tech]

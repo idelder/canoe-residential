@@ -10,8 +10,10 @@ import os
 import urllib.request
 import zipfile
 
-# Get provincial data on relative usage of different bulb types from Statcan table 38100048
-lgt_usage = utils.get_statcan_table(38100048)
-lgt_usage['GEO'] = lgt_usage['GEO'].str.lower()
+# Table 31: Appliance Stock by Appliance Type and Energy Source
+t31_elc_stk = utils.get_compr_db("ON", 31, 20, 25)
+t31_ng_stk = utils.get_compr_db("ON", 31, 38, 39)
 
-print(lgt_usage)
+print(config.nrcan_techs)
+print(t31_elc_stk)
+print(t31_ng_stk)

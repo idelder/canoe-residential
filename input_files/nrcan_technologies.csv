@@ -16,3 +16,11 @@ R_WAH_NG-EXS,Natural Gas,,water heating,existing natural gas,NG_WH,natural gas
 R_WAH_OIL-EXS,Heating Oil,,water heating,existing oil,DIST_WH,oil
 R_WAH_LPG-EXS,Other,,water heating,existing other (LPG),LPG_WH,lpg
 R_WAH_WOOD-EXS,Wood,,water heating,existing wood,WOOD_HT,wood
+R_APP_CL_WASH-EXS,Clothes Washer,,appliances clothes washers,existing clothes washers,CL_WASH,electricity
+R_APP_DS_WASH-EXS,Dishwasher,,appliances dish washers,existing dish washers,DS_WASH,electricity
+R_APP_ELEC_COOK-EXS,Range,,appliances cooking ranges,existing electric cooking ranges,ELEC_STV,electricity
+R_APP_ELEC_DRY-EXS,Clothes Dryer,,appliances clothes dryers,existing electric clothes dryers,ELEC_DRY,electricity
+R_APP_FREZ-EXS,Freezer,,appliances freezers,existing freezers,FREZ,electricity
+R_APP_NG_COOK-EXS,Range,,appliances cooking ranges,existing natural gas cooking ranges,NG_STV,natural gas
+R_APP_NG_DRY-EXS,Clothes Dryer,,appliances clothes dryers,existing natural gas clothes dryers,NG_DRY,natural gas
+R_APP_REFR-EXS,Refrigerator,,appliances refrigerators,existing refrigerators,REFR,electricity
