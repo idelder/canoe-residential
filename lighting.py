@@ -31,7 +31,7 @@ conv = config.params['conversion_factors']['lighting']
 
 # Some common variables
 in_comm = config.fuel_commodities.loc[config.params['lighting']['input_comm'], 'comm']
-out_comm = config.params['demand_commodities']['lighting']
+out_comm = config.end_use_demands.loc['lighting', 'comm']
 acf = config.params['lighting']['annual_capacity_factor']
 
 
@@ -181,7 +181,7 @@ def aggregate(region):
         curs.execute(f"""REPLACE INTO
                     Demand(regions, periods, demand_comm, demand, demand_units, demand_notes,
                     reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                    VALUES('{region}', {period}, '{config.params['demand_commodities']['lighting']}', {float(dem.loc[period])}, 'Glmy', '{note}',
+                    VALUES('{region}', {period}, '{config.end_use_demands.loc['lighting', 'comm']}', {float(dem.loc[period])}, 'Glmy', '{note}',
                     '{reference}', {nrcan_year}, 3, 3, 1, {utils.dq_time(period, nrcan_year)}, 3, 1)""")
         
 
@@ -200,7 +200,7 @@ def aggregate(region):
 
         lifetime = row['lamp_life']
 
-        aeo_note = f"Assumed same as {aeo_equivs[tech]}."
+        aeo_note = f"(y) Assumed same as {aeo_equivs[tech]}."
         curs.execute(f"""REPLACE INTO
                     LifetimeTech(regions, tech, life, life_notes,
                     reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
@@ -226,7 +226,7 @@ def aggregate(region):
             curs.execute(f"""REPLACE INTO
                         ExistingCapacity(regions, tech, vintage, exist_cap, exist_cap_units, exist_cap_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{tech}', {vint}, {exs_cap}, 'Glm', '{note}',
+                        VALUES('{region}', '{tech}', {vint}, {exs_cap}, '(Glm)', '{note}',
                         '{reference}', {2018}, 4, 2, 1, {utils.dq_time(config.model_periods[0], 2018)}, 3, 1)""")
             
             curs.execute(f"""REPLACE INTO
@@ -261,12 +261,12 @@ def aggregate(region):
 
             ## LifetimeProcess
             # Using lifetime process because some bulb lives improve over model periods in aeo data
-            note = f"Lamp life in hours (AEO, {aeo_year}) divided by annual capacity factor (DOE, 2012)."
+            note = f"(y) Lamp life in hours (AEO, {aeo_year}) divided by annual capacity factor (DOE, 2012)."
             reference = f"{aeo_ref}; {acf_ref}"
             curs.execute(f"""REPLACE INTO
                         LifetimeProcess(regions, tech, vintage, life_process, life_process_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{tech}', {vint}, {lifetime}, 'TODO',
+                        VALUES('{region}', '{tech}', {vint}, {lifetime}, '{note}',
                         '{reference}', {aeo_year}, 1, 1, 1, 1, 3, 1)""")
             
             ## Efficiency
@@ -274,8 +274,8 @@ def aggregate(region):
             curs.execute(f"""REPLACE INTO
                         Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{in_comm}', '{tech}', {vint}, '{out_comm}', {efficacy}, 'TODO',
-                        'TODO', {2018}, 1, 1, 1, 1, 3, 1)""")
+                        VALUES('{region}', '{in_comm}', '{tech}', {vint}, '{out_comm}', {efficacy}, '(Glmy/PJ)',
+                        '{aeo_ref}', {2018}, 1, 1, 1, 1, 3, 1)""")
             
             ## CostInvest
             cost_invest = conv['cost'] * get_aeo_value(tech, 'cost_install', vint)

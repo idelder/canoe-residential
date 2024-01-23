@@ -57,12 +57,14 @@ def aggregate(region):
     pop = config.populations[region]
     dem = activity[nrcan_year].sum() * pop / pop.loc[nrcan_year]
 
+    out_comm = config.end_use_demands.loc['space cooling', 'comm']
+
     # Write to database
     for period in config.model_periods:
         curs.execute(f"""REPLACE INTO
                     Demand(regions, periods, demand_comm, demand, demand_units, demand_notes,
                     reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                    VALUES('{region}', {period}, '{config.params['demand_commodities']['space cooling']}', {float(dem.loc[period])}, 'PJ', '{note}',
+                    VALUES('{region}', {period}, '{out_comm}', {float(dem.loc[period])}, 'PJ', '{note}',
                     '{reference}', {nrcan_year}, 1, 1, 1, {utils.dq_time(period, nrcan_year)}, 1, 1)""")
 
 
@@ -72,8 +74,6 @@ def aggregate(region):
         Efficiency of existing stock
     ##############################################################
     """
-
-    out_comm = config.params['demand_commodities']['space cooling']
 
     for tech, row in config.nrcan_techs.iterrows():
         if row['end_use'] != 'space cooling': continue
@@ -154,7 +154,7 @@ def aggregate(region):
 
         existing_cap = sum([fetch[0] for fetch in curs.execute(f"SELECT exist_cap FROM ExistingCapacity WHERE tech == '{tech}'").fetchall()])
         act = activity[nrcan_year].loc[nrcan_stock] # annual PJ output
-        c2a = config.params['c2a']['space cooling']
+        c2a = config.end_use_demands.loc['space cooling', 'c2a']
 
         # Annual capacity factor is actual annual activity divided by max possible annual activity from arbitrary c2a
         acf = act / (existing_cap * c2a)

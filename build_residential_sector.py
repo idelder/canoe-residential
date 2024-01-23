@@ -10,7 +10,8 @@ import space_heating
 import space_cooling
 import water_heating
 import lighting
-#import appliances
+import appliances
+from setup import config
 
 this_dir = os.path.realpath(os.path.dirname(__file__)) + "/"
 input_files = this_dir + 'input_files/'
@@ -32,11 +33,12 @@ conn.close()
 
 ## Aggregate subsectors
 all_subsectors.aggregate()
-all_subsectors.aggregate_region("ON")
-space_heating.aggregate("ON")
-space_cooling.aggregate("ON")
-water_heating.aggregate("ON")
-lighting.aggregate("ON")
-# appliances.aggregate("ON")
+for region in config.all_regions:
+    all_subsectors.aggregate_region(region)
+    space_heating.aggregate(region)
+    space_cooling.aggregate(region)
+    water_heating.aggregate(region)
+    lighting.aggregate(region)
+    appliances.aggregate(region)
+    all_subsectors.aggregate_region_post(region)
 all_subsectors.aggregate_post()
-all_subsectors.aggregate_region_post("ON")

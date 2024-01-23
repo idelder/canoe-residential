@@ -44,7 +44,7 @@ def aggregate(region):
     ##############################################################
     """
 
-    out_comm = config.params['demand_commodities']['water heating']
+    out_comm = c2a = config.end_use_demands.loc['water heating', 'comm']
     stock_effs = dict() # track efficiencies by nrcan stock
 
     for tech, row in config.nrcan_techs.iterrows():
@@ -97,7 +97,7 @@ def aggregate(region):
         curs.execute(f"""REPLACE INTO
                     Demand(regions, periods, demand_comm, demand, demand_units, demand_notes,
                     reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                    VALUES('{region}', {period}, '{config.params['demand_commodities']['water heating']}', {float(dem.loc[period])}, 'PJ', '{note}',
+                    VALUES('{region}', {period}, '{out_comm}', {float(dem.loc[period])}, 'PJ', '{note}',
                     '{reference}', {nrcan_year}, 2, 1, 1, {utils.dq_time(period, nrcan_year)}, 1, 3)""")
 
     
@@ -109,7 +109,7 @@ def aggregate(region):
     """
 
     # Table 28: Water Heater Stock by Building Type and Energy Source
-    t28_stk = utils.get_compr_db(region, 28, 15, 20)/1E6 # Munit
+    t28_stk = utils.get_compr_db(region, 28, 15, 20)/1000 # Munit
 
     # Notes for database
     note = f"{nrcan_year} stock (NRCan, {nrcan_year}) indexed to population (Statcan, {statcan_year}) and distributed evenly over feasible past vintages."
@@ -156,7 +156,7 @@ def aggregate(region):
 
         existing_cap = sum([fetch[0] for fetch in curs.execute(f"SELECT exist_cap FROM ExistingCapacity WHERE tech == '{tech}'").fetchall()])
         act = activity[nrcan_year].loc[nrcan_stock] # annual PJ output
-        c2a = config.params['c2a']['water heating']
+        c2a = config.end_use_demands.loc['water heating', 'c2a']
 
         # Annual capacity factor is actual annual activity divided by max possible annual activity from arbitrary c2a
         acf = act / (existing_cap * c2a)

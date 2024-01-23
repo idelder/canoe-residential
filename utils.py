@@ -15,6 +15,10 @@ import json
 from setup import config
 import urllib.request
 import zipfile
+import itertools
+import time
+import threading
+import sys
 
 
 
@@ -102,10 +106,11 @@ def get_statcan_table(table, save_as=None, use_cache=True):
     
 
 
-def get_compr_db(region, table_number, first_row=0, last_row=-1):
+def get_compr_db(region, table_number, first_row=0, last_row=None):
 
     table = get_data(compr_db_url(region, table_number), skiprows=10)
-    table = table.loc[first_row:last_row].drop("Unnamed: 0", axis=1).set_index('Unnamed: 1').dropna()
+    table = table.loc[first_row::] if last_row is None else table.loc[first_row:last_row]
+    table = table.drop("Unnamed: 0", axis=1).set_index('Unnamed: 1').dropna()
     table.index.name = None
     clean_index(table)
 
@@ -114,7 +119,7 @@ def get_compr_db(region, table_number, first_row=0, last_row=-1):
 
 
 # Downloads and handles local caching of data sources
-def get_data(url, file_type=None, cache_file_type=None, name=None, use_cache=True, **kwargs):
+def get_data(url, file_type=None, cache_file_type=None, name=None, use_cache=True, **kwargs) -> pd.DataFrame:
 
     # Get the original file name
     if name == None: name = url.split("/")[-1].split("\\")[-1]
@@ -142,10 +147,17 @@ def get_data(url, file_type=None, cache_file_type=None, name=None, use_cache=Tru
         
     else:
 
+        print(f"Downloading {name} ...")
+
+        is_done = [False]
+        working_wheel(is_done)
+
         # Download from url
         if file_type == "csv": data = pd.read_csv(url, **kwargs)
         elif "xl" in file_type: data = pd.read_excel(url, **kwargs)
         elif file_type == "xml": data = json.dumps(xmltodict.parse(requests.get(url).content))
+
+        is_done[0] = True
 
         # Try to cache downloaded file
         try:
@@ -283,3 +295,22 @@ class DatabaseConverter:
                 ws.append(row.values.tolist())
 
         wb.save(to_excel_file)
+
+
+
+def animate_wheel(is_done):
+    for c in itertools.cycle(['|', '/', '-', '\\']):
+        time.sleep(0.1)
+        if is_done[0]:
+            break
+        sys.stdout.write('\r' + c)
+        sys.stdout.flush()
+        time.sleep(0.1)
+    sys.stdout.write('\r')
+    sys.stdout.flush()
+
+
+
+def working_wheel(is_done):
+    t = threading.Thread(target=animate_wheel, args=(is_done,))
+    t.start()

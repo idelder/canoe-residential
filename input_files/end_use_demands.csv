@@ -1,0 +1,12 @@
+﻿end_use,comm,c2a
+space heating,D_R_SPH,2000
+space cooling,D_R_SPC,2000
+water heating,D_R_WAH,2000
+lighting,D_R_LGT,1
+appliances refrigerators,D_R_APP_REF,1
+appliances freezers,D_R_APP_FRZ,1
+appliances dish washers,D_R_APP_DSH,1
+appliances clothes washers,D_R_APP_CWSH,1
+appliances clothes dryers,D_R_APP_CDRY,1
+appliances cooking ranges,D_R_APP_COOK_RNG,1
+appliances other,D_R_APP_OTH,1

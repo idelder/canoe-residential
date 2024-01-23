@@ -23,7 +23,7 @@ aeo_techs = config.aeo_techs
 aeo_res_class = config.aeo_res_class
 aeo_res_equip = config.aeo_res_equip
 fuel_commodities = config.fuel_commodities
-demand_commodities = config.params['demand_commodities']
+end_use_demands = config.end_use_demands
 aeo_ref = config.params['aeo_reference']
 aeo_year = config.params['aeo_data_year']
 nrcan_year = config.params['nrcan_data_year']
@@ -49,10 +49,10 @@ def aggregate():
         curs.execute(f"""REPLACE INTO
                     commodities(comm_name, flag, comm_desc)
                     VALUES('{row['comm']}', 'p', '(PJ) residential {fuel}')""")
-    for desc, comm in demand_commodities.items():
+    for desc, row in end_use_demands.iterrows():
         curs.execute(f"""REPLACE INTO
                     commodities(comm_name, flag, comm_desc)
-                    VALUES('{comm}', 'd', '(PJ) demand for residential {desc}')""")
+                    VALUES('{row['comm']}', 'd', '(PJ) demand for residential {desc}')""")
 
 
 
@@ -112,6 +112,18 @@ def aggregate():
         # Add lifetimes and feasible vintages to config dictionaries
         config.lifetimes[tech] = lifetime
         config.tech_vints[tech] = utils.feasible_vintages(config.model_periods[0], lifetime)
+
+
+
+    """
+    ##############################################################
+        Demand specific distribution
+    ##############################################################
+    """
+
+    for state in config.regions['us_state'].unique():
+
+        utils.get_data(f"
             
 
     conn.commit()
@@ -156,7 +168,7 @@ def aggregate_region(region):
         lifetime = config.lifetimes[tech]
 
         ## LifetimeTech
-        note = 'Average of Weibull distribution.'
+        note = '(y) Average of Weibull distribution.'
         curs.execute(f"""REPLACE INTO
                     LifetimeTech(regions, tech, life, life_notes,
                     reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
@@ -209,7 +221,7 @@ def aggregate_region(region):
                 end_use = end_uses[e]
                 end_use_id = end_use_ids[e]
 
-                out_comm = demand_commodities[end_use]
+                out_comm = end_use_demands.loc[end_use, 'comm']
                 
                 if type(df2) is pd.DataFrame: eff = df2.loc[(df2['End Use'] == int(end_use_id))]['Efficiency'].values[0]
                 elif type(df2) is pd.Series: eff = df2['Efficiency'] # only one row remaining
@@ -218,7 +230,7 @@ def aggregate_region(region):
                 curs.execute(f"""REPLACE INTO
                         Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{in_comm}', '{tech}', {vint}, '{out_comm}', {eff}, '{eff_metric}',
+                        VALUES('{region}', '{in_comm}', '{tech}', {vint}, '{out_comm}', {eff}, '({eff_metric})',
                         '{aeo_ref}', {aeo_year}, 1, 1, 1, 1, 3, 1)""")
     
 
@@ -273,23 +285,21 @@ def aggregate_region(region):
     ## NRCan existing stock
     for tech, row in nrcan_techs.iterrows():
         end_use = row['end_use']
-        if end_use not in config.params['c2a'].keys(): continue
 
-        c2a = config.params['c2a'][end_use]
+        c2a = end_use_demands.loc[end_use, 'c2a']
         curs.execute(f"""REPLACE INTO
                         CapacityToActivity(regions, tech, c2a, c2a_notes, dq_est)
-                        VALUES('{region}', '{tech}', {c2a}, '{note}', 1)""")
+                        VALUES('{region}', '{tech}', {c2a}, '{note}', 0)""")
 
     ## AEO future stock
     for tech, row in aeo_techs.iterrows():
         end_uses = row['end_uses'].split('+')
-        if end_use[0] not in config.params['c2a'].keys(): continue
 
-        c2a = config.params['c2a'][end_uses[0]] # Must be the same for all end uses anyway
+        c2a = end_use_demands.loc[end_uses[0], 'c2a'] # Must be the same for all end uses anyway
         curs.execute(f"""REPLACE INTO
                         CapacityToActivity(regions, tech, c2a, c2a_notes, dq_est)
-                        VALUES('{region}', '{tech}', {c2a}, '{note}', 1)""")
-        
+                        VALUES('{region}', '{tech}', {c2a}, '{note}', 0)""")
+    
 
 
     conn.commit()
@@ -369,16 +379,17 @@ def aggregate_region_post(region):
         if pd.isna(row['nrcan_equiv']): continue # no NRCan equivalent given
         
         end_uses = row['end_uses'].split('+')
-        nrcan_techs = row['nrcan_equiv'].split('+')
+        nrcan_equivs = row['nrcan_equiv'].split('+')
+        nrcan_equivs = [nrcan_techs.loc[nrcan_techs['end_use'] + " - " + nrcan_techs['description'] == nrcan_equiv].index.values[0] for nrcan_equiv in nrcan_equivs]
 
         for e in range(len(end_uses)):
             
             end_use = end_uses[e]
-            nrcan_tech = nrcan_techs[e]
+            nrcan_tech = nrcan_equivs[e]
 
-            out_comm = demand_commodities[end_use]
+            out_comm = end_use_demands.loc[end_use, 'comm']
             
-            note = f"Assumed same as {nrcan_techs[e]}"
+            note = f"Assumed same as {nrcan_equivs[e]}"
 
             # Get annual capacity factor from equivalent nrcan tech for which we have data
             acf = curs.execute(f"SELECT max_acf FROM MaxAnnualCapacityFactor WHERE tech == '{nrcan_tech}'").fetchone()[0]

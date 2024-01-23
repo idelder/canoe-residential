@@ -10,21 +10,9 @@ model_periods:
   - 2045
   - 2050
 
-demand_commodities:
-  'space heating': 'D_R_SPH'
-  'space cooling': 'D_R_SPC'
-  'lighting': 'D_R_LGT'
-  'water heating': 'D_R_WAH'
-  'appliances refrigerators': 'D_R_APP_REF'
-  'appliances freezers': 'D_R_APP_FRZ'
-  'appliances dish washers': 'D_R_APP_DSH'
-  'appliances clothes washers': 'D_R_APP_CWSH'
-  'appliances clothes dryers': 'D_R_APP_CDRY'
-  'appliances cooking ranges': 'D_R_APP_COOK_RNG'
-  'appliances other appliances': 'D_R_APP_OTH'
-
 nrcan_url: "https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/data_e/downloads/comprehensive/Excel/<y>/res_<r>_e_<t>.xls"
-nrcan_reference: Comprehensive Energy Use Database. Government of Canada, Natural Resources Canada. (2020) https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/menus/trends/comprehensive_tables/list.cfm
+nrcan_reference: 'Natural Resources Canada, (2020). Comprehensive Energy Use Database. https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/menus/trends/comprehensive_tables/list.cfm'
+handbook_reference: 'Natural Resources Canada, (2020). Energy Use Data Handbook Tables. https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/menus/trends/handbook/tables.cfm'
 nrcan_data_year: 2020
 
 aeo_reference: 'EIA. (2023). Updated Buildings Sector Appliance and Equipment Costs and Efficiency—Reference case [dataset]. https://www.eia.gov/analysis/studies/buildings/equipcosts/'
@@ -55,24 +43,12 @@ conversion_factors:
     'efficacy': 0.0317 # lm/W to Glmy/PJ
     'lifetime': 1.142E-4 # hours to years 1/8760
     'cost': 1 # $/klm(y) to M$/Glm(y)
+  activity:
+    'kwh': 3.6e-9 # kWh to PJ
 
-# Arbitrary large such that peak demand is satisfied
-c2a:
-  'space heating': 2000 # Must be same as space cooling as c2a isn't indexed by end use and heat pumps do both
-  'space cooling': 2000 # Must be same as space heating as c2a isn't indexed by end use and heat pumps do both
-  'water heating': 2000 # LPG instant water heater actual value close to 2000
-  'lighting': 1 # Glmy/Glmy
-  'appliances refrigerators': 1 # Munity/Munity
-  'appliances freezers': 1 # Munity/Munity
-  'appliances dish washers': 1 # Munity/Munity
-  'appliances clothes washers': 1 # Munity/Munity
-  'appliances clothes dryers': 1 # Munity/Munity
-  'appliances cooking ranges': 1 # Munity/Munity
-  'appliances other': 1 # Munity/Munity
-
-# Arbitrary capacity factor for appliances to ensure peak demand is met
-appliances_acf: 0.05
-appliances_other_tech: 'R_APP_OTH'
+appliances:
+  annual_capacity_factor: 0.05 # Arbitrary capacity factor for appliances to ensure peak demand is met
+  other_tech: 'R_APP_OTH'
 
 lighting: 
   annual_capacity_factor: 0.0667 # 1.6/24
@@ -87,3 +63,12 @@ lighting:
 housing_categories:
   single_family: "Single Detached+Single Attached+Mobile Homes"
   multi_family: "Apartments"
+
+resstock:
+  url: https://oedi-data-lake.s3.amazonaws.com/nrel-pds-building-stock/end-use-load-profiles-for-us-building-stock/2022/resstock_amy2018_release_1.1/timeseries_aggregates/by_state/upgrade=10/state=<s>/<f>
+  housing_files:
+    'mobile homes': 'up10-<s>-mobile_home.csv'
+    'apartments': 'up10-<s>-multi-family_with_5plus_units.csv'
+    'single attached': 'up10-<s>-single-family_attached.csv'
+    'single detached': up10-<s>-single-family_detached.csv
+  reference: 

@@ -1,3 +1,3 @@
-﻿region,description,us_census_div
-ON,ontario,3
-ALL,all regions,11
+﻿region,description,us_census_div,us_state
+ON,ontario,3,MI
+AB,alberta,8,MO

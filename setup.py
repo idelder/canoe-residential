@@ -44,8 +44,9 @@ class config:
         config.nrcan_techs = pd.read_csv(config._input_files + 'nrcan_technologies.csv', index_col=0)
         config.regions = pd.read_csv(config._input_files + 'regions.csv', index_col=0)
         config.fuel_commodities = pd.read_csv(config._input_files + 'fuels.csv', index_col=0)
+        config.end_use_demands = pd.read_csv(config._input_files + 'end_use_demands.csv', index_col=0)
 
-        config.all_regions = list(config.regions.index.drop('ALL'))
+        config.all_regions = set(config.regions.index)
         config.all_techs = [*config.aeo_techs.index.values, *config.nrcan_techs.index.values]
 
         config.populations = dict()
