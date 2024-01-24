@@ -10,14 +10,45 @@ import os
 import urllib.request
 import zipfile
 import time
+import sqlite3
+import numpy as np
+from matplotlib import pyplot as pp
 
-#state = 'mo'
-df = utils.get_data(f"https://oedi-data-lake.s3.amazonaws.com/nrel-pds-building-stock/end-use-load-profiles-for-us-building-stock/2022/resstock_amy2018_release_1.1/timeseries_aggregates/by_state/upgrade=10/state={state.upper()}/up10-{state.lower()}-mobile_home.csv")
+conn = sqlite3.connect('residential.sqlite')
+curs = conn.cursor()
 
-hb_uec = utils.get_data(f"https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/data_e/downloads/handbook/Excel/{2020}/res_00_16_e.xls", skiprows=7)
-hb_uec = hb_uec.drop('Unnamed: 0', axis=1).set_index('Unnamed: 1').dropna()
-utils.clean_index(hb_uec)
-hb_uec_elc = hb_uec.iloc[0:6]
-hb_uec_ng = hb_uec.iloc[6:8]
-print(hb_uec_elc)
-print(hb_uec_ng)
+days_in_months = [31,28,31,30,31,30,31,31,30,31,30,31]
+
+df_wth = utils.get_data('https://www.ncei.noaa.gov/data/global-hourly/access/2018/72537514822.csv', index_col=1)
+df_wth = df_wth.loc[df_wth.index.str.contains('53')]
+temp = list(range(8760))
+
+i=0
+for m in range(12):
+    for d in range(days_in_months[m]):
+        for h in range(24):
+            ms = f"0{m+1}" if m+1 < 10 else str(m+1)
+            ds = f"0{d+1}" if d+1 < 10 else str(d+1)
+            hs = f"0{h}" if h < 10 else str(h)
+            idx = f"2018-{ms}-{ds}T{hs}:53:00"
+            if idx not in df_wth.index: tmp = 0
+            else: tmp = float(df_wth.loc[idx, 'TMP'].split(',')[0])/10
+            if tmp > 900: tmp = 0
+            temp[i]=tmp
+            i+=1
+
+dsd = list(range(8760))
+for el in curs.execute("SELECT time_of_day_name, dds FROM DemandSpecificDistribution WHERE regions == 'ON' AND demand_name = 'D_R_SPH'").fetchall():
+    dsd[int(el[0])] = float(el[1])
+
+df_temp = pd.DataFrame(index=temp, data=dsd)
+
+avg_ts = list(range(-30,40))
+for i in range(len(avg_ts)):
+    avg_t = df_temp.loc[(df_temp.index>avg_ts[i]) & (df_temp.index<=avg_ts[i]+1)].mean()
+    avg_ts[i] = avg_t
+
+pp.plot(range(-30,40), avg_ts, 'b.')
+pp.show()
+
+conn.close()

@@ -121,50 +121,54 @@ def aggregate():
     ##############################################################
     """
 
-    res_config = pd.read_csv(input_files + 'resstock.csv')
+    res_config = pd.read_csv(input_files + 'resstock.csv', index_col=0)
+    cons = dict() # 8760 hourly energy consumption by state, housing type, and end use, (kWh)
 
-    cons = dict()
     for state in config.regions['us_state'].unique():
-
-        housing_types = config.params['resstock']['housing_files'].keys()
-
         cons[state] = dict()
-        for housing_type in housing_types:
 
-            df_res = utils.get_data(config.params['resstock']['url'].replace("<f>", config.params['resstock']['housing_files'][housing_type]).replace("<s>", state.lower()))
-
+        for housing_type, file_name in config.params['resstock']['housing_files'].items():
             cons[state][housing_type] = dict()
+
+            df_res = utils.get_data(config.params['resstock']['url'].replace("<s>",state.upper()).replace("<f>", file_name).replace("<s>", state.lower()))
+            stock = df_res['units_represented'].values[0]
+
             for end_use in config.end_use_demands.index:
                 
                 res_cols = res_config.loc[res_config['end_use'] == end_use]
 
                 for res_col in res_cols.index:
+                    
+                    # Divide consumption by number of units represented to get consumption per household
+                    con = df_res[res_col].iloc[[8760, *range(3, 4*8760-1, 4)]].clip(lower=0) / stock
 
-                    dsd = df_res[res_col] / df_res[res_col].sum()
-                    if end_use in cons[state][housing_type].keys(): cons[end_use] += dsd
-                    else: cons[state][housing_type][end_use] = dsd
+                    if end_use in cons[state][housing_type].keys(): cons[state][housing_type][end_use] += con
+                    else: cons[state][housing_type][end_use] = con
 
-    for region, row in config.regions.iterrows():
+    
+    for region in config.model_regions:
 
+        row = config.regions.loc[region]
         state = row['us_state']
+
+        # Table 14: Total Households by Building Type and Energy Source
+        t14 = utils.get_compr_db(region, 14, 9, 12)[nrcan_year] / 100 # % shares
 
         for end_use, row in config.end_use_demands.iterrows():
 
             demand_comm = row['comm']
 
-            #housing_stocks = ...
-            #cons = sum(housing_stock x cons_stock)
-            #dsd = cons / sum(cons)
-
-            dsd = cons[state][]
+            # DSD is consumption for each housing type times provincial stock of that housing type, divided by annual total
+            con = sum([t14[housing_type] * cons[state][housing_type][end_use] for housing_type in t14.index])
+            dsd = (con / sum(con)).to_list()
 
             for h in range(8760):
 
                 curs.execute(f"""REPLACE INTO
                             DemandSpecificDistribution(regions, season_name, time_of_day_name, demand_name, dds, dds_notes,
                             reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                            VALUES('{region}', 'TODO', '{h}', {demand_comm}, '{}', {eff}, '{note}',
-                            '{aeo_ref}', {aeo_year}, 3, 2, 1, 1, 3, 3)""")
+                            VALUES('{region}', 'TODO', '{h}', '{demand_comm}', '{dsd[h]}', 'TODO',
+                            'TODO nrcan and resstock', 0, 3, 2, 1, 1, 3, 3)""")
 
     
 

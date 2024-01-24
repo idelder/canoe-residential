@@ -142,7 +142,7 @@ def aggregate(region):
     for col in reg_shares[['share_sf','share_mf']].columns: reg_shares[col] /= reg_shares[col].sum() # reset to sum 100%
 
     # Table 14: Total Households by Building Type and Energy Source
-    t14 = utils.get_compr_db(region, 14, 9, 12)[2018] / 100 # % shares
+    t14 = utils.get_compr_db(region, 14, 9, 12)[nrcan_year] / 100 # % shares
     
     # Aggregate subcategories of housing into single-family and multi-family
     for cat, subcats in config.params['housing_categories'].items():

@@ -61,8 +61,8 @@ lighting:
 
 # Categorising NRCan housing stocks
 housing_categories:
-  single_family: "Single Detached+Single Attached+Mobile Homes"
-  multi_family: "Apartments"
+  single_family: "single detached+single attached+mobile homes"
+  multi_family: "apartments"
 
 resstock:
   url: https://oedi-data-lake.s3.amazonaws.com/nrel-pds-building-stock/end-use-load-profiles-for-us-building-stock/2022/resstock_amy2018_release_1.1/timeseries_aggregates/by_state/upgrade=10/state=<s>/<f>

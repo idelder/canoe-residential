@@ -44,7 +44,7 @@ def string_letters(string):
 
 def clean_index(df):
 
-    df.index = [string_letters(idx) for idx in df.index]
+    df.index = [string_letters(idx).lower() for idx in df.index]
 
 
 
@@ -152,12 +152,16 @@ def get_data(url, file_type=None, cache_file_type=None, name=None, use_cache=Tru
         is_done = [False]
         working_wheel(is_done)
 
-        # Download from url
-        if file_type == "csv": data = pd.read_csv(url, **kwargs)
-        elif "xl" in file_type: data = pd.read_excel(url, **kwargs)
-        elif file_type == "xml": data = json.dumps(xmltodict.parse(requests.get(url).content))
-
-        is_done[0] = True
+        try:
+            # Download from url
+            if file_type == "csv": data = pd.read_csv(url, **kwargs)
+            elif "xl" in file_type: data = pd.read_excel(url, **kwargs)
+            elif file_type == "xml": data = json.dumps(xmltodict.parse(requests.get(url).content))
+        except Exception as e:
+            print(url)
+            print(e)
+        finally:
+            is_done[0] = True
 
         # Try to cache downloaded file
         try:

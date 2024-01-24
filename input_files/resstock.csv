@@ -1,0 +1,43 @@
+﻿resstock_col,end_use
+out.electricity.ceiling_fan.energy_consumption.kwh,appliances other
+out.electricity.clothes_dryer.energy_consumption.kwh,appliances clothes dryers
+out.electricity.clothes_washer.energy_consumption.kwh,appliances clothes washers
+out.electricity.cooling_fans_pumps.energy_consumption.kwh,appliances other
+out.electricity.cooling.energy_consumption.kwh,space cooling
+out.electricity.dishwasher.energy_consumption.kwh,appliances dish washers
+out.electricity.freezer.energy_consumption.kwh,appliances freezers
+out.electricity.heating_fans_pumps.energy_consumption.kwh,appliances other
+out.electricity.heating_hp_bkup.energy_consumption.kwh,space heating
+out.electricity.heating.energy_consumption.kwh,space heating
+out.electricity.hot_tub_heater.energy_consumption.kwh,water heating
+out.electricity.hot_tub_pump.energy_consumption.kwh,appliances other
+out.electricity.hot_water.energy_consumption.kwh,water heating
+out.electricity.lighting_exterior.energy_consumption.kwh,lighting
+out.electricity.lighting_garage.energy_consumption.kwh,lighting
+out.electricity.lighting_interior.energy_consumption.kwh,lighting
+out.electricity.mech_vent.energy_consumption.kwh,appliances other
+out.electricity.plug_loads.energy_consumption.kwh,appliances other
+out.electricity.pool_heater.energy_consumption.kwh,water heating
+out.electricity.pool_pump.energy_consumption.kwh,appliances other
+out.electricity.pv.energy_consumption.kwh,
+out.electricity.range_oven.energy_consumption.kwh,appliances cooking ranges
+out.electricity.refrigerator.energy_consumption.kwh,appliances refrigerators
+out.electricity.well_pump.energy_consumption.kwh,appliances other
+out.fuel_oil.heating_hp_bkup.energy_consumption.kwh,space heating
+out.fuel_oil.heating.energy_consumption.kwh,space heating
+out.fuel_oil.hot_water.energy_consumption.kwh,water heating
+out.natural_gas.clothes_dryer.energy_consumption.kwh,appliances clothes dryers
+out.natural_gas.fireplace.energy_consumption.kwh,space heating
+out.natural_gas.grill.energy_consumption.kwh,appliances cooking ranges
+out.natural_gas.heating_hp_bkup.energy_consumption.kwh,space heating
+out.natural_gas.heating.energy_consumption.kwh,space heating
+out.natural_gas.hot_tub_heater.energy_consumption.kwh,water heating
+out.natural_gas.hot_water.energy_consumption.kwh,water heating
+out.natural_gas.lighting.energy_consumption.kwh,lighting
+out.natural_gas.pool_heater.energy_consumption.kwh,water heating
+out.natural_gas.range_oven.energy_consumption.kwh,appliances cooking ranges
+out.propane.clothes_dryer.energy_consumption.kwh,appliances clothes dryers
+out.propane.heating_hp_bkup.energy_consumption.kwh,space heating
+out.propane.heating.energy_consumption.kwh,space heating
+out.propane.hot_water.energy_consumption.kwh,water heating
+out.propane.range_oven.energy_consumption.kwh,appliances cooking ranges

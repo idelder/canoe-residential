@@ -1113,8 +1113,8 @@ CREATE TABLE IF NOT EXISTS "DemandSpecificDistribution" (
 	"season_name"	text,
 	"time_of_day_name"	text,
 	"demand_name"	text,
-	"dds"	real CHECK("dds" >= 0 AND "dds" <= 1),
-	"dds_notes"	text,
+	"dsd"	real CHECK("dsd" >= 0 AND "dsd" <= 1),
+	"dsd_notes"	text,
 
 	"reference" text,
 	"data_year" integer,

@@ -33,7 +33,7 @@ conn.close()
 
 ## Aggregate subsectors
 all_subsectors.aggregate()
-for region in config.all_regions:
+for region in config.model_regions:
     all_subsectors.aggregate_region(region)
     space_heating.aggregate(region)
     space_cooling.aggregate(region)
