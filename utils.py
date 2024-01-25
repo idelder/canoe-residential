@@ -28,6 +28,7 @@ cache_dir = this_dir + "download_cache/"
 input_files = this_dir + 'input_files/'
 excel_template = input_files + 'Template spreadsheet (make a copy).xlsx'
 weather_maps = dict()
+stations = dict()
 
 
 
@@ -325,16 +326,24 @@ def working_wheel(is_done):
 
 def weather_map_data(region, us_data: list) -> pd.Series :
 
+    # If the mapper already exists then just use it
+    if region in weather_maps.keys():
+
+        # Matrix multiply map by US data vector to get Canadian data vector and fill in gaps by chronological linear interpolation
+        return pd.Series(np.matmul(weather_maps[region], us_data)).interpolate(method='linear')
+
+    ## Otherwise generate the map
+    print(f"Generating a weather-based data map from {config.regions.loc[region, 'us_state']} to {region}...")
+
     # Days in each month of the year. Need because of dodgy index
     days_in_months = [31,28,31,30,31,30,31,31,30,31,30,31]
 
     # Weather data from the US
-    df_us_wth = get_data(config.params['weather']['us_url'].replace('<st>', str(int(config.regions.loc[region, 'us_station']))), index_col=1, usecols=range(15))
+    df_us_wth = get_data(config.params['weather']['us']['url'].replace('<st>', str(int(config.regions.loc[region, 'us_station']))), index_col=1, usecols=range(15))
     df_us_wth = df_us_wth.loc[df_us_wth.index.str.contains('53')] # TODO This may not apply to all stations in retrospect...
     df_us = pd.DataFrame(index=range(8760))
-    df_us['data'] = us_data # passing as data threw a bug so here we go
 
-    # Mapping 2018 data to 2018 us weather data
+    # Clean up us station data
     i=0
     for m in range(12):
         for d in range(days_in_months[m]):
@@ -361,34 +370,25 @@ def weather_map_data(region, us_data: list) -> pd.Series :
     diurnal /= np.mean(diurnal)
 
     # Canadian weather data
-    df_ca = get_data(config.params['weather']['canada_url'].replace('<st>', str(int(config.regions.loc[region, 'ca_station']))).replace('<r>', region), encoding='unicode_escape', usecols=range(12)).iloc[0:8760]
+    df_ca = get_data(config.params['weather']['canada']['url'].replace('<st>', str(int(config.regions.loc[region, 'ca_station']))).replace('<r>', region), encoding='unicode_escape', usecols=range(12)).iloc[0:8760]
 
-    # Check if need to build the data mapper for this region
-    if region not in weather_maps.keys():
+    # A 2D matrix map of which US data points to use per Canadian datum
+    weather_maps[region] = np.zeros((8760,8760))
 
-        # A 2D matrix map of which US data points to use per Canadian datum
-        weather_maps[region] = np.zeros((8760,8760))
-        print(f"Generating a weather-based data map from {config.regions.loc[region, 'us_state']} to {region}...")
-    
-        for i, row in df_ca.iterrows():
-            h = i % 24
+    for i, row in df_ca.iterrows():
+        h = i % 24
 
-            # For this datum, boolean vector of relevant data in US data vector
-            map = 1.0*np.array((row['Temp (°C)'] < df_us['TMP']+1) &
-                (row['Temp (°C)'] > df_us['TMP']-1) &
-                (row['Dew Point Temp (°C)'] > df_us['DEW']-1) &
-                (row['Dew Point Temp (°C)'] < df_us['DEW']+1)).transpose()
-            
-            # Get the mean of US data and apply diurnal factor
-            map *= np.nan if np.sum(map) == 0 else diurnal[h] / np.sum(map) # want NaN if no matches found
-
-            # Save these matrix maps per region to save having to repeat the above slow process
-            weather_maps[region][i,:] = map.copy()
-
-    # Matrix multiply map by US data vector to get Canadian data vector
-    df_ca['data'] = pd.Series(np.matmul(weather_maps[region], df_us['data']))
+        # For this datum, boolean vector of relevant data in US data vector
+        map = 1.0*np.array((row['Temp (°C)'] < df_us['TMP']+1) &
+            (row['Temp (°C)'] > df_us['TMP']-1) &
+            (row['Dew Point Temp (°C)'] > df_us['DEW']-1) &
+            (row['Dew Point Temp (°C)'] < df_us['DEW']+1)).transpose()
         
-    # Fill in data gaps by chronological linear interpolation
-    df_ca['data'].interpolate(method='linear', inplace=True)
+        # Get the mean of US data and apply diurnal factor
+        map *= np.nan if np.sum(map) == 0 else diurnal[h] / np.sum(map) # want NaN if no matches found
 
-    return df_ca['data']
+        # Save these matrix maps per region to save having to repeat the above slow process
+        weather_maps[region][i,:] = map.copy()
+
+    # Matrix multiply map by US data vector to get Canadian data vector and fill in gaps by chronological linear interpolation
+    return pd.Series(np.matmul(weather_maps[region], us_data)).interpolate(method='linear')

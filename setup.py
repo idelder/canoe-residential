@@ -45,8 +45,9 @@ class config:
         config.regions = pd.read_csv(config._input_files + 'regions.csv', index_col=0)
         config.fuel_commodities = pd.read_csv(config._input_files + 'fuels.csv', index_col=0)
         config.end_use_demands = pd.read_csv(config._input_files + 'end_use_demands.csv', index_col=0)
-        config.all_techs = [*config.aeo_techs.index.values, *config.nrcan_techs.index.values]
+        config.time = pd.read_csv(config._input_files + 'time.csv', index_col=0)
 
+        config.all_techs = [*config.aeo_techs.index.values, *config.nrcan_techs.index.values]
         config.model_regions = set(config.regions.loc[config.regions['include']].index)
         config.populations = dict()
         for region in config.model_regions: config.populations[region] = pd.read_excel(config._input_files + "/population.xlsx", sheet_name=region, index_col=0)

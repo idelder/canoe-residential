@@ -124,6 +124,10 @@ def aggregate():
     ##############################################################
     """
 
+    reference = (f"{config.params['resstock']['reference']}; "
+                 f"{config.params['weather']['us']['reference']}; "
+                 f"{config.params['weather']['canada']['reference'].replace('<y>', str(nrcan_year))}")
+
     res_config = pd.read_csv(input_files + 'resstock.csv', index_col=0)
     cons = dict() # 8760 hourly energy consumption by state, housing type, and end use, (kWh)
 
@@ -154,6 +158,11 @@ def aggregate():
         row = config.regions.loc[region]
         state = row['us_state']
 
+        note = (f"ResStock data for {state} (NREL, 2021) aggregated by end use and mapped to 2018 air temperature "
+                f"and dew point temperature from station {config.regions.loc[region, 'us_station']} (NCEI, 2018). "
+                f"Remapped to {nrcan_year} {region} weather from station {config.regions.loc[region, 'ca_station']} "
+                f"with chronological linear interpolation for any missing data.")
+
         # Table 14: Total Households by Building Type and Energy Source
         t14 = utils.get_compr_db(region, 14, 9, 12)[nrcan_year] / 100 # % shares
 
@@ -168,8 +177,7 @@ def aggregate():
         if n_plots % 3 != 0:
             axs[-1, -1].axis('off')
 
-        p = 0
-
+        p = 0 # plot tracker
         for end_use, row in config.end_use_demands.iterrows():
 
             demand_comm = row['comm']
@@ -194,8 +202,8 @@ def aggregate():
                 curs.execute(f"""REPLACE INTO
                             DemandSpecificDistribution(regions, season_name, time_of_day_name, demand_name, dds, dds_notes,
                             reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                            VALUES('{region}', 'TODO', '{h}', '{demand_comm}', '{dsd[h]}', 'TODO',
-                            'TODO nrcan and resstock', 0, 3, 2, 1, 1, 3, 3)""")
+                            VALUES('{region}', '{config.time.loc[h, 'season']}', '{config.time.loc[h, 'time_of_day']}', '{demand_comm}', '{dsd[h]}', '{note}',
+                            '{reference}', 2018, 3, 2, 1, {utils.dq_time(nrcan_year, 2018)}, 3, 3)""")
                 
         pp.tight_layout()
 
