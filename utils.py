@@ -361,22 +361,32 @@ def weather_map_data(region, us_data: list) -> pd.Series :
     diurnal /= np.mean(diurnal)
 
     # Canadian weather data
-    df_ca = get_data(config.params['weather']['canada_url'].replace('<st>', str(int(config.regions.loc[region, 'ca_station']))).replace('<r>', region), encoding='unicode_escape', usecols=range(12))
+    df_ca = get_data(config.params['weather']['canada_url'].replace('<st>', str(int(config.regions.loc[region, 'ca_station']))).replace('<r>', region), encoding='unicode_escape', usecols=range(12)).iloc[0:8760]
 
-    # Take US data where temp and dew temp are +-1 matching, then apply diurnal factor
-    is_done = [False]
-    #working_wheel(is_done)
-    print(f"Mapping data from {config.regions.loc[region, 'us_state']} to {region} based on weather...")
+    # Check if need to build the data mapper for this region
+    if region not in weather_maps.keys():
 
-    for idx, row in df_ca.iterrows():
-        h = idx % 24
-                
-        df_ca.loc[idx,'data'] = df_us.loc[(row['Temp (°C)'] < df_us['TMP']+1) &
-                                (row['Temp (°C)'] > df_us['TMP']-1) &
-                                (row['Dew Point Temp (°C)'] > df_us['DEW']-1) &
-                                (row['Dew Point Temp (°C)'] < df_us['DEW']+1)]['data'].mean() * diurnal[h]
+        # A 2D matrix map of which US data points to use per Canadian datum
+        weather_maps[region] = np.zeros((8760,8760))
+        print(f"Generating a weather-based data map from {config.regions.loc[region, 'us_state']} to {region}...")
+    
+        for i, row in df_ca.iterrows():
+            h = i % 24
 
-    is_done[0] = True
+            # For this datum, boolean vector of relevant data in US data vector
+            map = 1.0*np.array((row['Temp (°C)'] < df_us['TMP']+1) &
+                (row['Temp (°C)'] > df_us['TMP']-1) &
+                (row['Dew Point Temp (°C)'] > df_us['DEW']-1) &
+                (row['Dew Point Temp (°C)'] < df_us['DEW']+1)).transpose()
+            
+            # Get the mean of US data and apply diurnal factor
+            map *= np.nan if np.sum(map) == 0 else diurnal[h] / np.sum(map) # want NaN if no matches found
+
+            # Save these matrix maps per region to save having to repeat the above slow process
+            weather_maps[region][i,:] = map.copy()
+
+    # Matrix multiply map by US data vector to get Canadian data vector
+    df_ca['data'] = pd.Series(np.matmul(weather_maps[region], df_us['data']))
         
     # Fill in data gaps by chronological linear interpolation
     df_ca['data'].interpolate(method='linear', inplace=True)

@@ -44,4 +44,5 @@ for region in config.model_regions:
     all_subsectors.aggregate_region_post(region)
 all_subsectors.aggregate_post()
 
+# Show any plots that have been made
 pp.show()
