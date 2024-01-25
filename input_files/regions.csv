@@ -1,3 +1,3 @@
-﻿region,description,include,us_census_div,us_state
-ON,ontario,TRUE,3,MI
-AB,alberta,TRUE,8,MT
+﻿region,description,include,us_census_div,us_state,us_station,ca_station
+ON,ontario,TRUE,3,MI,72537514822,6158359
+AB,alberta,TRUE,8,MT,72677024033,3031092

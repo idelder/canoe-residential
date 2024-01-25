@@ -12,6 +12,7 @@ import water_heating
 import lighting
 import appliances
 from setup import config
+from matplotlib import pyplot as pp
 
 this_dir = os.path.realpath(os.path.dirname(__file__)) + "/"
 input_files = this_dir + 'input_files/'
@@ -42,3 +43,5 @@ for region in config.model_regions:
     appliances.aggregate(region)
     all_subsectors.aggregate_region_post(region)
 all_subsectors.aggregate_post()
+
+pp.show()

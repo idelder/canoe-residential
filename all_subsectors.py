@@ -9,6 +9,8 @@ import os
 import pandas as pd
 from scipy.special import gamma
 import sqlite3
+import numpy as np
+from matplotlib import pyplot as pp
 
 
 this_dir = os.path.realpath(os.path.dirname(__file__)) + "/"
@@ -30,6 +32,7 @@ nrcan_year = config.params['nrcan_data_year']
 nrcan_ref = config.params['nrcan_reference']
 statcan_ref = config.params['statcan_reference']
 conversion_factors = config.params['conversion_factors']
+
 
 
 # For non-regional aggregation
@@ -160,7 +163,16 @@ def aggregate():
 
             # DSD is consumption for each housing type times provincial stock of that housing type, divided by annual total
             con = sum([t14[housing_type] * cons[state][housing_type][end_use] for housing_type in t14.index])
-            dsd = (con / sum(con)).to_list()
+
+            # Map space heating, cooling to temperature and dew point temp (humidity). Note: this introduces weather efficiency to the demand!
+            if row['weather_map']: con = utils.weather_map_data(region, con.to_list())
+
+            # Normalise
+            dsd = (con / con.sum()).to_list()
+
+            pp.figure()
+            pp.plot(dsd)
+            pp.title(f"{region} - {end_use}")
 
             for h in range(8760):
 
@@ -170,7 +182,6 @@ def aggregate():
                             VALUES('{region}', 'TODO', '{h}', '{demand_comm}', '{dsd[h]}', 'TODO',
                             'TODO nrcan and resstock', 0, 3, 2, 1, 1, 3, 3)""")
 
-    
 
     conn.commit()
     conn.close()

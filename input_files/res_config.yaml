@@ -71,4 +71,9 @@ resstock:
     'apartments': 'up10-<s>-multi-family_with_5plus_units.csv'
     'single attached': 'up10-<s>-single-family_attached.csv'
     'single detached': up10-<s>-single-family_detached.csv
-  reference: 
+  reference: 'NREL. (2021, October). ResStock—NREL. https://resstock.nrel.gov/dataviewer?datasetName=vizstock_resstock_amy2018_release_1_by_state'
+  year: 2018
+
+weather:
+  us_url: 'https://www.ncei.noaa.gov/data/global-hourly/access/2018/<st>.csv'
+  canada_url: 'https://dd.weather.gc.ca/climate/observations/hourly/csv/<r>/climate_hourly_<r>_<st>_2020_P1H.csv'

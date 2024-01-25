@@ -19,6 +19,7 @@ import itertools
 import time
 import threading
 import sys
+import numpy as np
 
 
 
@@ -26,6 +27,7 @@ this_dir = os.path.realpath(os.path.dirname(__file__)) + "/"
 cache_dir = this_dir + "download_cache/"
 input_files = this_dir + 'input_files/'
 excel_template = input_files + 'Template spreadsheet (make a copy).xlsx'
+weather_maps = dict()
 
 
 
@@ -150,7 +152,7 @@ def get_data(url, file_type=None, cache_file_type=None, name=None, use_cache=Tru
         print(f"Downloading {name} ...")
 
         is_done = [False]
-        working_wheel(is_done)
+        #working_wheel(is_done)
 
         try:
             # Download from url
@@ -318,3 +320,65 @@ def animate_wheel(is_done):
 def working_wheel(is_done):
     t = threading.Thread(target=animate_wheel, args=(is_done,))
     t.start()
+
+
+
+def weather_map_data(region, us_data: list) -> pd.Series :
+
+    # Days in each month of the year. Need because of dodgy index
+    days_in_months = [31,28,31,30,31,30,31,31,30,31,30,31]
+
+    # Weather data from the US
+    df_us_wth = get_data(config.params['weather']['us_url'].replace('<st>', str(int(config.regions.loc[region, 'us_station']))), index_col=1, usecols=range(15))
+    df_us_wth = df_us_wth.loc[df_us_wth.index.str.contains('53')] # TODO This may not apply to all stations in retrospect...
+    df_us = pd.DataFrame(index=range(8760))
+    df_us['data'] = us_data # passing as data threw a bug so here we go
+
+    # Mapping 2018 data to 2018 us weather data
+    i=0
+    for m in range(12):
+        for d in range(days_in_months[m]):
+            for h in range(24):
+                ms = f"0{m+1}" if m+1 < 10 else str(m+1)
+                ds = f"0{d+1}" if d+1 < 10 else str(d+1)
+                hs = f"0{h}" if h < 10 else str(h)
+                idx = f"2018-{ms}-{ds}T{hs}:53:00"
+
+                for val in ['TMP','DEW']:
+                    if idx not in df_us_wth.index: v = pd.NA
+                    else:
+                        v = float(df_us_wth.loc[idx, val].split(',')[0])/10
+                        if v > 50: v = pd.NA
+                    df_us.loc[i, val] = v
+
+                i+=1
+
+    # Fill in temperature gaps by chronological linear interpolation
+    df_us.interpolate(method='linear', axis='columns', inplace=True)
+
+    # Diurnal factor on data
+    diurnal = [sum(us_data[h:364*24+h:24]) for h in range(24)]
+    diurnal /= np.mean(diurnal)
+
+    # Canadian weather data
+    df_ca = get_data(config.params['weather']['canada_url'].replace('<st>', str(int(config.regions.loc[region, 'ca_station']))).replace('<r>', region), encoding='unicode_escape', usecols=range(12))
+
+    # Take US data where temp and dew temp are +-1 matching, then apply diurnal factor
+    is_done = [False]
+    #working_wheel(is_done)
+    print(f"Mapping data from {config.regions.loc[region, 'us_state']} to {region} based on weather...")
+
+    for idx, row in df_ca.iterrows():
+        h = idx % 24
+                
+        df_ca.loc[idx,'data'] = df_us.loc[(row['Temp (°C)'] < df_us['TMP']+1) &
+                                (row['Temp (°C)'] > df_us['TMP']-1) &
+                                (row['Dew Point Temp (°C)'] > df_us['DEW']-1) &
+                                (row['Dew Point Temp (°C)'] < df_us['DEW']+1)]['data'].mean() * diurnal[h]
+
+    is_done[0] = True
+        
+    # Fill in data gaps by chronological linear interpolation
+    df_ca['data'].interpolate(method='linear', inplace=True)
+
+    return df_ca['data']
