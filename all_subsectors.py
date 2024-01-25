@@ -157,6 +157,19 @@ def aggregate():
         # Table 14: Total Households by Building Type and Energy Source
         t14 = utils.get_compr_db(region, 14, 9, 12)[nrcan_year] / 100 # % shares
 
+        # Sample data generation
+        n_plots = 11
+
+        # Create figure and axes
+        fig, axs = pp.subplots(4, 3, figsize=(15, 10))  # 4 rows, 3 columns
+        fig.suptitle(region)
+            
+        # Hide the last subplot (bottom right) if n_plots is not a multiple of 3
+        if n_plots % 3 != 0:
+            axs[-1, -1].axis('off')
+
+        p = 0
+
         for end_use, row in config.end_use_demands.iterrows():
 
             demand_comm = row['comm']
@@ -170,9 +183,11 @@ def aggregate():
             # Normalise
             dsd = (con / con.sum()).to_list()
 
-            pp.figure()
-            pp.plot(dsd)
-            pp.title(f"{region} - {end_use}")
+            row = p // 3  # Integer division to determine row
+            col = p % 3   # Modulo to determine column
+            axs[row, col].plot(dsd)
+            axs[row, col].set_title(end_use)
+            p+=1
 
             for h in range(8760):
 
@@ -181,7 +196,8 @@ def aggregate():
                             reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                             VALUES('{region}', 'TODO', '{h}', '{demand_comm}', '{dsd[h]}', 'TODO',
                             'TODO nrcan and resstock', 0, 3, 2, 1, 1, 3, 3)""")
-
+                
+        pp.tight_layout()
 
     conn.commit()
     conn.close()
