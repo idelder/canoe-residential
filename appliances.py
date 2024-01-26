@@ -17,7 +17,7 @@ schema_file = this_dir + "canoe_schema.sql"
 database_file = this_dir + "residential.sqlite"
 
 # Shortens lines a bit
-nrcan_year = config.params['nrcan_data_year']
+base_year = config.params['base_year']
 nrcan_ref = config.params['nrcan_reference']
 aeo_ref = config.params['aeo_reference']
 aeo_year = config.params['aeo_data_year']
@@ -72,7 +72,7 @@ def aggregate(region):
     ##############################################################
     """
 
-    note = f"{nrcan_year} stock (NRCan, {nrcan_year}) indexed to population (Statcan, {statcan_year}) and distributed evenly over feasible past vintages."
+    note = f"{base_year} stock (NRCan, {base_year}) indexed to population (Statcan, {statcan_year}) and distributed evenly over feasible past vintages."
     reference = f"{nrcan_ref}; {statcan_ref}"
 
     # Table 31: Appliance Stock by Appliance Type and Energy Source
@@ -85,13 +85,13 @@ def aggregate(region):
         if 'appliances' not in row['end_use']: continue
 
         if row['fuels'] == 'electricity':
-            exs_cap = t31_elc_stk.loc[row['nrcan_stocks'], nrcan_year]
+            exs_cap = t31_elc_stk.loc[row['nrcan_stocks'], base_year]
         elif row['fuels'] == 'natural gas':
-            exs_cap = t31_ng_stk.loc[row['nrcan_stocks'], nrcan_year]
+            exs_cap = t31_ng_stk.loc[row['nrcan_stocks'], base_year]
 
         # Index to population and distribute existing capacities evenly over feasible vintages
         vints = [2025] if row['end_use'] == 'appliances other' else config.tech_vints[tech]
-        exs_cap *= pop.loc[config.model_periods[0]].values[0] / pop.loc[nrcan_year].values[0] / len(vints)
+        exs_cap *= pop.loc[config.model_periods[0]].values[0] / pop.loc[base_year].values[0] / len(vints)
 
         # Add to demand for this end use
         if row['end_use'] not in dems.keys(): dems[row['end_use']] = 0
@@ -103,7 +103,7 @@ def aggregate(region):
                         ExistingCapacity(regions, tech, vintage, exist_cap, exist_cap_units, exist_cap_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                         VALUES('{region}', '{tech}', {vint}, {exs_cap}, 'Munit', '{note}',
-                        '{reference}', {nrcan_year}, 1, 1, 1, {utils.dq_time(config.model_periods[0], nrcan_year)}, 1, 1)""")
+                        '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(config.model_periods[0], base_year)}, 1, 1)""")
         
 
 
@@ -120,13 +120,13 @@ def aggregate(region):
     for end_use, exs_dem in dems.items():
         for period in config.model_periods:
 
-            dem = exs_dem * pop.loc[period].values[0] / pop.loc[nrcan_year].values[0]
+            dem = exs_dem * pop.loc[period].values[0] / pop.loc[base_year].values[0]
 
             curs.execute(f"""REPLACE INTO
                     Demand(regions, periods, demand_comm, demand, demand_units, demand_notes,
                     reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                     VALUES('{region}', {period}, '{end_use_demands.loc[end_use, 'comm']}', {dem}, 'Munity', '{note}',
-                    '{reference}', {nrcan_year}, 1, 1, 1, {utils.dq_time(period, nrcan_year)}, 1, 1)""")
+                    '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(period, base_year)}, 1, 1)""")
         
 
 
@@ -146,10 +146,10 @@ def aggregate(region):
 
         vints = [2025] if row['end_use'] == 'appliances other' else config.tech_vints[tech]
 
-        note = (f"(Munity/PJ) {nrcan_year} demand divided by {nrcan_year} secondary energy consumption (NRCan, {nrcan_year}). ")
+        note = (f"(Munity/PJ) {base_year} demand divided by {base_year} secondary energy consumption (NRCan, {base_year}). ")
 
-        stock = t31_elc_stk.loc[row['nrcan_stocks'], nrcan_year]
-        sec = t13_sec.loc[row['nrcan_stocks'], nrcan_year]
+        stock = t31_elc_stk.loc[row['nrcan_stocks'], base_year]
+        sec = t13_sec.loc[row['nrcan_stocks'], base_year]
 
         # Times acf because assumed actual activity is stock times acf
         eff_exs = stock * acf / sec
@@ -160,12 +160,12 @@ def aggregate(region):
                     Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
                     reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                     VALUES('{region}', '{fuel_commodities.loc['electricity', 'comm']}', '{tech}', {vint}, '{end_use_demands.loc[row['end_use'], 'comm']}', {eff_exs}, '{note}',
-                    '{nrcan_ref}', {nrcan_year}, 1, 1, 1, 1, 1, 1)""")
+                    '{nrcan_ref}', {base_year}, 1, 1, 1, 1, 1, 1)""")
 
 
     ## Cooking ranges and clothes dryers
     # A pain to deal with because both natural gas and electricity variants
-    note = "Using generic unit energy consumpion (UEC) from Energy Use Data Handbook as provincial data cannot be disaggregated by both end use and fuel."
+    note = "(Munity/PJ) From generic unit energy consumpion (UEC) from Energy Use Data Handbook as provincial data cannot be disaggregated by both end use and fuel."
     reference = config.params['handbook_reference']
 
     # Generic unit energy consumption of nrcan technologies
@@ -190,7 +190,7 @@ def aggregate(region):
             vints = config.tech_vints[techs[f]]
 
             # Efficiency in Munity/PJ times acf because assumed actual activity is stock times acf
-            eff_exs = 1/hb_uecs[f].loc[row['nrcan_stocks'], nrcan_year] * acf
+            eff_exs = 1/hb_uecs[f].loc[row['nrcan_stocks'], base_year] * acf
 
             ## Existing Efficiency
             for vint in vints:
@@ -198,7 +198,7 @@ def aggregate(region):
                         Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                         VALUES('{region}', '{fuel_commodities.loc[fuels[f], 'comm']}', '{techs[f]}', {vint}, '{end_use_demands.loc[end_use, 'comm']}', {eff_exs}, '{note}',
-                        '{reference}', {nrcan_year}, 3, 2, 1, 1, 3, 1)""")
+                        '{reference}', {base_year}, 3, 2, 1, 1, 3, 1)""")
             
 
 

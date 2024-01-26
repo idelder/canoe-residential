@@ -19,7 +19,7 @@ database_file = this_dir + "residential.sqlite"
 # Shortens lines a bit
 statcan_year = config.params['statcan_data_year']
 statcan_ref = config.params['statcan_reference']
-nrcan_year = config.params['nrcan_data_year']
+base_year = config.params['base_year']
 nrcan_ref = config.params['nrcan_reference']
 aeo_ref = config.params['aeo_reference']
 aeo_year = config.params['aeo_data_year']
@@ -125,7 +125,7 @@ def aggregate(region):
     # If we had better data for this everything would be fine... but we only have for Ontario
     # So we take stock data for Ontario and index it to usage rates from a Statcan survey per province
 
-    note = (f"{nrcan_year} secondary energy (NRCan, {nrcan_year}) multiplied by average efficacy (efficiency) of existing lighting stock. "
+    note = (f"{base_year} secondary energy (NRCan, {base_year}) multiplied by average efficacy (efficiency) of existing lighting stock. "
             f"Indexed to projected population (Statcan, {statcan_year})")
     reference = f"{nrcan_ref}; {statcan_ref}"
     
@@ -142,7 +142,7 @@ def aggregate(region):
     for col in reg_shares[['share_sf','share_mf']].columns: reg_shares[col] /= reg_shares[col].sum() # reset to sum 100%
 
     # Table 14: Total Households by Building Type and Energy Source
-    t14 = utils.get_compr_db(region, 14, 9, 12)[nrcan_year] / 100 # % shares
+    t14 = utils.get_compr_db(region, 14, 9, 12)[base_year] / 100 # % shares
     
     # Aggregate subcategories of housing into single-family and multi-family
     for cat, subcats in config.params['housing_categories'].items():
@@ -170,11 +170,11 @@ def aggregate(region):
         exs_eff += exs_techs.loc[tech_exs, 'efficacy'] * reg_shares.loc[tech_exs, 'share_tot']
 
     # Table 3: Lighting Secondary Energy Use and GHG Emissions
-    sec = utils.get_compr_db(region, 3, 1, 1)[nrcan_year].values[0]
+    sec = utils.get_compr_db(region, 3, 1, 1)[base_year].values[0]
 
     # Demand is secondary energy times 2018 average lighting stock efficacy, indexed to population growth
     pop = config.populations[region]
-    dem = exs_eff * sec * pop / pop.loc[nrcan_year]
+    dem = exs_eff * sec * pop / pop.loc[base_year]
 
     # Write demand to database
     for period in config.model_periods:
@@ -182,7 +182,7 @@ def aggregate(region):
                     Demand(regions, periods, demand_comm, demand, demand_units, demand_notes,
                     reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                     VALUES('{region}', {period}, '{config.end_use_demands.loc['lighting', 'comm']}', {float(dem.loc[period])}, 'Glmy', '{note}',
-                    '{reference}', {nrcan_year}, 3, 3, 1, {utils.dq_time(period, nrcan_year)}, 3, 1)""")
+                    '{reference}', {base_year}, 3, 3, 1, {utils.dq_time(period, base_year)}, 3, 1)""")
         
 
 
@@ -200,11 +200,11 @@ def aggregate(region):
 
         lifetime = row['lamp_life']
 
-        aeo_note = f"(y) Assumed same as {aeo_equivs[tech]}."
+        aeo_note = f"Assumed same as {aeo_equivs[tech]}."
         curs.execute(f"""REPLACE INTO
                     LifetimeTech(regions, tech, life, life_notes,
                     reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                    VALUES('{region}', '{tech}', {lifetime}, '{aeo_note}',
+                    VALUES('{region}', '{tech}', {lifetime}, '(y) {aeo_note}',
                     '{aeo_ref}', {aeo_year}, 1, 1, 1, 1, 3, 1)""")
         
         vints = utils.feasible_vintages(config.model_periods[0], lifetime)
@@ -219,7 +219,7 @@ def aggregate(region):
         for vint in vints:
 
             note = (f"Ontario existing stock of residential bulb types by housing type (IESO, 2018) "
-                    f"multiplied by housing stock by type (NRCan, {nrcan_year}). "
+                    f"multiplied by housing stock by type (NRCan, {base_year}). "
                     f"Indexed to relative usage of bulb types by province versus Ontario (Statcan, 2018) "
                     f"and to projected population (Statcan, {statcan_year}).")
             reference = f"{on_stock_ref}; {nrcan_ref}; {usage_ref}; {statcan_ref}"
@@ -232,7 +232,7 @@ def aggregate(region):
             curs.execute(f"""REPLACE INTO
                         Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{in_comm}', '{tech}', {vint}, '{out_comm}', {row['efficacy']}, '{aeo_note}',
+                        VALUES('{region}', '{in_comm}', '{tech}', {vint}, '{out_comm}', {row['efficacy']}, '(Glmy/PJ) {aeo_note}',
                         '{aeo_ref}', {2018}, 1, 1, 1, 1, 3, 1)""")
             
             for period in config.model_periods:

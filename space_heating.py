@@ -17,7 +17,7 @@ schema_file = this_dir + "canoe_schema.sql"
 database_file = this_dir + "residential.sqlite"
 
 # Shortens lines a bit
-nrcan_year = config.params['nrcan_data_year']
+base_year = config.params['base_year']
 nrcan_ref = config.params['nrcan_reference']
 statcan_year = config.params['statcan_data_year']
 statcan_ref = config.params['statcan_reference']
@@ -37,7 +37,7 @@ def aggregate(region):
     ##############################################################
     """
 
-    note = (f"Sum of {nrcan_year} secondary energy multiplied by efficiency per technology (NRCan, {nrcan_year}). "
+    note = (f"Sum of {base_year} secondary energy multiplied by efficiency per technology (NRCan, {base_year}). "
             "Dual fuel boilers taken to consume only first listed fuel in this calculation. "
             f"Indexed to projected population (Statcan, {statcan_year})")
     reference = f"{nrcan_ref}; {statcan_ref}"
@@ -50,14 +50,14 @@ def aggregate(region):
 
     # Multiply secondary energy by efficiency to get output heating energy
     # Dual fuel systems make this a little painful
-    activity = t8_sec.copy()[nrcan_year] # output primary energy (demand) by technology
+    activity = t8_sec.copy()[base_year] # output primary energy (demand) by technology
     tracker = dict() # tracking multiples of the same fuel type
     for nrcan_tech in activity.index:
 
         fuel = nrcan_tech
         if "/" in fuel: fuel = fuel.split("/")[0]
 
-        eff = t26_eff.loc[fuel, nrcan_year]
+        eff = t26_eff.loc[fuel, base_year]
 
         # To handle multple techs of the same fuel, take efficiencies from the table in order
         if fuel not in tracker.keys(): tracker[fuel] = 0
@@ -71,7 +71,7 @@ def aggregate(region):
 
     # Index demand to population growth
     pop = config.populations[region]
-    dem = activity.sum() * pop / pop.loc[nrcan_year]
+    dem = activity.sum() * pop / pop.loc[base_year]
 
     out_comm = config.end_use_demands.loc['space heating', 'comm']
 
@@ -81,7 +81,7 @@ def aggregate(region):
                     Demand(regions, periods, demand_comm, demand, demand_units, demand_notes,
                     reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                     VALUES('{region}', {period}, '{out_comm}', {float(dem.loc[period])}, 'PJ', '{note}',
-                    '{reference}', {nrcan_year}, 1, 1, 1, {utils.dq_time(period, nrcan_year)}, 1, 1)""")
+                    '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(period, base_year)}, 1, 1)""")
 
 
 
@@ -112,7 +112,7 @@ def aggregate(region):
                 fuel = nrcan_fuels[f]
 
                 fuel = fuel.replace('Electric','Electricity') # annoying
-                eff = t26_eff.loc[fuel, nrcan_year]
+                eff = t26_eff.loc[fuel, base_year]
 
                 # To handle multple techs of the same fuel, take efficiencies from the table in order, (skipping one for wood, annoying)
                 if fuel not in tracker.keys(): tracker[fuel] = 1 if fuel == 'Wood' else 0
@@ -129,7 +129,7 @@ def aggregate(region):
                         Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                         VALUES('{region}', '{in_comm}', '{tech}', {vint}, '{out_comm}', {eff}, '{note}',
-                        '{nrcan_ref}', {nrcan_year}, 1, 1, 1, 1, 1, 1)""")
+                        '{nrcan_ref}', {base_year}, 1, 1, 1, 1, 1, 1)""")
     
             continue
 
@@ -143,8 +143,8 @@ def aggregate(region):
             substocks = nrcan_stock.split("+")
             note = f"(PJ/PJ) aggregated efficiencies proportioned to secondary energy consumption"
 
-            sec_energy = np.array([t8_sec.loc[substock, nrcan_year] for substock in substocks])
-            effs = np.array([t26_eff.loc[substock, nrcan_year] for substock in substocks])
+            sec_energy = np.array([t8_sec.loc[substock, base_year] for substock in substocks])
+            effs = np.array([t26_eff.loc[substock, base_year] for substock in substocks])
 
             # Efficiency is aggregated by ratios of secondary energy consumption in data year
             # This matches the demand calculation which is efficiency multiplied by secondary energy consumption
@@ -152,7 +152,7 @@ def aggregate(region):
 
         ## Single fuel and single stock technologies    
         else:
-            eff = t26_eff.loc[nrcan_stock, nrcan_year]
+            eff = t26_eff.loc[nrcan_stock, base_year]
             if type(eff) is pd.Series: eff = eff.iloc[0] # these technologies are above dual fuel boilers in the table
 
 
@@ -162,7 +162,7 @@ def aggregate(region):
                 Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
                 reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                 VALUES('{region}', '{in_comm}', '{tech}', {vint}, '{out_comm}', {eff}, '{note}',
-                '{nrcan_ref}', {nrcan_year}, 1, 1, 1, 1, 1, 1)""")
+                '{nrcan_ref}', {base_year}, 1, 1, 1, 1, 1, 1)""")
     
 
 
@@ -176,7 +176,7 @@ def aggregate(region):
     t21_stk = utils.get_compr_db(region, 21, 16, 30)/1000 # Munit
 
     # Notes for database
-    note = f"{nrcan_year} stock (NRCan, {nrcan_year}) indexed to population (Statcan, {statcan_year}) and distributed evenly over feasible past vintages."
+    note = f"{base_year} stock (NRCan, {base_year}) indexed to population (Statcan, {statcan_year}) and distributed evenly over feasible past vintages."
     reference = f"{nrcan_ref}; {statcan_ref}"
 
     # Get existing capacities from NRCan stock and distribute over past vintages
@@ -189,11 +189,11 @@ def aggregate(region):
         substocks = nrcan_stocks.split("+")
 
         # Get existing capacity (stock) from nrcan and index to population growth
-        existing_cap = sum([t21_stk.loc[substock, nrcan_year] for substock in substocks])
+        existing_cap = sum([t21_stk.loc[substock, base_year] for substock in substocks])
         
         # Index to population and distribute existing capacities evenly over feasible vintages
         vints = config.tech_vints[tech]
-        existing_cap *= pop.loc[config.model_periods[0]].values[0] / pop.loc[nrcan_year].values[0] / len(vints)
+        existing_cap *= pop.loc[config.model_periods[0]].values[0] / pop.loc[base_year].values[0] / len(vints)
 
         # Write existing capacities to database
         for vint in vints:
@@ -201,7 +201,7 @@ def aggregate(region):
                         ExistingCapacity(regions, tech, vintage, exist_cap, exist_cap_units, exist_cap_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                         VALUES('{region}', '{tech}', {vint}, {existing_cap}, 'Munit', '{note}',
-                        '{reference}', {nrcan_year}, 1, 1, 1, {utils.dq_time(config.model_periods[0], nrcan_year)}, 1, 1)""")
+                        '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(config.model_periods[0], base_year)}, 1, 1)""")
         
 
 
@@ -212,7 +212,7 @@ def aggregate(region):
     """
 
     ## NRCan existing stock
-    max_note = (f"Annual utilisation of units. (annual secondary energy consumption * efficiency) / (c2a * existing stock) (NRCan, {nrcan_year})")
+    max_note = (f"Annual utilisation of units. (annual secondary energy consumption * efficiency) / (c2a * existing stock) (NRCan, {base_year})")
     min_note = "99% of MaxACF. " + max_note
 
     # Get existing capacities from NRCan stock and distribute over past vintages
@@ -236,14 +236,53 @@ def aggregate(region):
                             MinAnnualCapacityFactor(regions, periods, tech, output_comm, min_acf, min_acf_notes,
                             reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                             VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf*0.99}, '{min_note}',
-                            '{reference}', {nrcan_year}, 1, 1, 1, {utils.dq_time(period, nrcan_year)}, 1, 1)""")
+                            '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(period, base_year)}, 1, 1)""")
             curs.execute(f"""REPLACE INTO
                             MaxAnnualCapacityFactor(regions, periods, tech, output_comm, max_acf, max_acf_notes,
                             reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                             VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf}, '{max_note}',
-                            '{reference}', {nrcan_year}, 1, 1, 1, {utils.dq_time(period, nrcan_year)}, 1, 1)""")
+                            '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(period, base_year)}, 1, 1)""")
 
 
+
+    """
+    ##############################################################
+        Furnace fan electricity consumption
+    ##############################################################
+    """
+
+    frn_fan = config.params['furnace_fans']
+    split = frn_fan['output_split'] / (1 + frn_fan['output_split']) # from PJ/PJ_heat to PJ/PJ_tot
+    tos_note = f"(PJ/PJ) Furnace fan electricity consumption. x/(1+x) where x is assumed 6 kWh into fan / MMBtu heat out (nyserda, 2013)."
+
+    # Get technologies that need furnace fan consumption
+    fan_classes = config.aeo_res_class.loc[config.aeo_res_class['Furnace Fan Flag']==1].index.unique()
+    fan_techs = [*config.nrcan_techs.loc[config.nrcan_techs['aeo_class'].isin(fan_classes)].index.values, *config.aeo_techs.loc[config.aeo_techs['aeo_class'].isin(fan_classes)].index.values]
+
+    for tech in fan_techs:
+
+        vints = config.tech_vints[tech]
+
+        # Add a dummy process to convert input fan electricity to worthless dummy commodity
+        # 100% efficiency so TechOutputSplit can be used
+        for vint in vints:
+            curs.execute(f"""REPLACE INTO
+                    Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
+                    dq_est)
+                    VALUES('{region}', '{config.fuel_commodities.loc['electricity', 'comm']}', '{tech}', {vint},
+                    '{frn_fan['out_comm']}', {1}, '(PJ/PJ) {frn_fan['out_comm_description']}',
+                    0)""")
+        
+        # Set ratio of fan electricity consumption to output heat
+        for period in config.model_periods:
+            if period < min(vints) or max(vints) + config.lifetimes[tech] <= period: continue
+
+            curs.execute(f"""REPLACE INTO
+                    TechOutputSplit(regions, periods, tech, output_comm, to_split, to_split_notes,
+                    reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
+                    VALUES('{region}', {period}, '{tech}', '{frn_fan['out_comm']}', {split}, '{tos_note}',
+                    '{frn_fan['reference']}', {2013}, 3, 1, 1, {utils.dq_time(2013, period)}, 3, 3)""")
+    
 
     conn.commit()
     conn.close()

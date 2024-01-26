@@ -1,10 +1,10 @@
-﻿end_use,comm,c2a,weather_map
+﻿end_use,comm,c2a,use_weather_map
 space heating,D_R_SPH,2000,TRUE
 space cooling,D_R_SPC,2000,TRUE
-water heating,D_R_WAH,2000,TRUE
+water heating,D_R_WAH,2000,FALSE
 lighting,D_R_LGT,1,FALSE
-appliances refrigerators,D_R_APP_REF,1,TRUE
-appliances freezers,D_R_APP_FRZ,1,TRUE
+appliances refrigerators,D_R_APP_REF,1,FALSE
+appliances freezers,D_R_APP_FRZ,1,FALSE
 appliances dish washers,D_R_APP_DSH,1,FALSE
 appliances clothes washers,D_R_APP_CWSH,1,FALSE
 appliances clothes dryers,D_R_APP_CDRY,1,FALSE

@@ -28,7 +28,7 @@ fuel_commodities = config.fuel_commodities
 end_use_demands = config.end_use_demands
 aeo_ref = config.params['aeo_reference']
 aeo_year = config.params['aeo_data_year']
-nrcan_year = config.params['nrcan_data_year']
+base_year = config.params['base_year']
 nrcan_ref = config.params['nrcan_reference']
 statcan_ref = config.params['statcan_reference']
 conversion_factors = config.params['conversion_factors']
@@ -56,6 +56,11 @@ def aggregate():
         curs.execute(f"""REPLACE INTO
                     commodities(comm_name, flag, comm_desc)
                     VALUES('{row['comm']}', 'd', '(PJ) demand for residential {desc}')""")
+    
+    # Dummy output commodity from furnace fan electricity consumption
+    curs.execute(f"""REPLACE INTO
+                commodities(comm_name, flag, comm_desc)
+                VALUES('{config.params['furnace_fans']['out_comm']}', 'p', '(PJ) {config.params['furnace_fans']['out_comm_description']}')""")
 
 
 
@@ -117,6 +122,16 @@ def aggregate():
         config.tech_vints[tech] = utils.feasible_vintages(config.model_periods[0], lifetime)
 
 
+    conn.commit()
+    conn.close()
+
+
+
+# Doing all regions at once because some regions might share equivalent states and this process is slow
+def aggregate_dsd():
+
+    conn = sqlite3.connect(database_file)
+    curs = conn.cursor() # Cursor object interacts with the sqlite db
 
     """
     ##############################################################
@@ -126,11 +141,12 @@ def aggregate():
 
     reference = (f"{config.params['resstock']['reference']}; "
                  f"{config.params['weather']['us']['reference']}; "
-                 f"{config.params['weather']['canada']['reference'].replace('<y>', str(nrcan_year))}")
+                 f"{config.params['weather']['canada']['reference'].replace('<y>', str(base_year))}")
 
     res_config = pd.read_csv(input_files + 'resstock.csv', index_col=0)
     cons = dict() # 8760 hourly energy consumption by state, housing type, and end use, (kWh)
 
+    ## Get end use energy consumptions from resstock columns and divide by number of housing units represented
     for state in config.regions['us_state'].unique():
         cons[state] = dict()
 
@@ -147,31 +163,33 @@ def aggregate():
                 for res_col in res_cols.index:
                     
                     # Divide consumption by number of units represented to get consumption per household
-                    con = df_res[res_col].iloc[[8760, *range(3, 4*8760-1, 4)]].clip(lower=0) / stock
+                    con = df_res[res_col].iloc[[8760, *range(3, 4*8760-1, 4)]].clip(lower=0) / stock # 15-minutely so take every 4th
 
                     if end_use in cons[state][housing_type].keys(): cons[state][housing_type][end_use] += con
                     else: cons[state][housing_type][end_use] = con
 
     
+    ## Multiply energy consumptions from resstock by province housing stocks, apply weather mapping, then normalise to DSD
     for region in config.model_regions:
 
         row = config.regions.loc[region]
         state = row['us_state']
 
         note = (f"ResStock data for {state} (NREL, 2021) aggregated by end use and mapped to 2018 air temperature "
-                f"and dew point temperature from station {config.regions.loc[region, 'us_station']} (NCEI, 2018). "
-                f"Remapped to {nrcan_year} {region} weather from station {config.regions.loc[region, 'ca_station']} "
-                f"with chronological linear interpolation for any missing data.")
+                f"and dew point temperature, taking the mean, from station {config.regions.loc[region, 'us_station']} (NCEI, 2018). "
+                f"Remapped to {base_year} {region} weather from station {config.regions.loc[region, 'ca_station']}, "
+                f"matching temperatures +-1°C and applying a diurnal adjustment as hour-of-day average divided by annual average. "
+                f"Chronological linear interpolation for any missing data.")
 
         # Table 14: Total Households by Building Type and Energy Source
-        t14 = utils.get_compr_db(region, 14, 9, 12)[nrcan_year] / 100 # % shares
+        t14 = utils.get_compr_db(region, 14, 9, 12)[base_year] / 100 # % shares
 
         # Sample data generation
         n_plots = 11
 
         # Create figure and axes
         fig, axs = pp.subplots(4, 3, figsize=(15, 10))  # 4 rows, 3 columns
-        fig.suptitle(region)
+        fig.suptitle(f"{region} demand specific distributions")
             
         # Hide the last subplot (bottom right) if n_plots is not a multiple of 3
         if n_plots % 3 != 0:
@@ -182,15 +200,16 @@ def aggregate():
 
             demand_comm = row['comm']
 
-            # DSD is consumption for each housing type times provincial stock of that housing type, divided by annual total
+            # Consumption for each housing type times provincial stock of that housing type
             con = sum([t14[housing_type] * cons[state][housing_type][end_use] for housing_type in t14.index])
 
             # Map space heating, cooling to temperature and dew point temp (humidity). Note: this introduces weather efficiency to the demand!
-            if row['weather_map']: con = utils.weather_map_data(region, con.to_list())
+            if row['use_weather_map']: con = utils.weather_map_data(region, con.to_list())
 
             # Normalise
             dsd = (con / con.sum()).to_list()
 
+            # For plotting DSDs
             row = p // 3  # Integer division to determine row
             col = p % 3   # Modulo to determine column
             axs[row, col].plot(dsd)
@@ -198,12 +217,11 @@ def aggregate():
             p+=1
 
             for h in range(8760):
-
                 curs.execute(f"""REPLACE INTO
-                            DemandSpecificDistribution(regions, season_name, time_of_day_name, demand_name, dds, dds_notes,
+                            DemandSpecificDistribution(regions, season_name, time_of_day_name, demand_name, dsd, dsd_notes,
                             reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                             VALUES('{region}', '{config.time.loc[h, 'season']}', '{config.time.loc[h, 'time_of_day']}', '{demand_comm}', '{dsd[h]}', '{note}',
-                            '{reference}', 2018, 3, 2, 1, {utils.dq_time(nrcan_year, 2018)}, 3, 3)""")
+                            '{reference}', 2018, 3, 2, 1, {utils.dq_time(base_year, 2018)}, 3, 3)""")
                 
         pp.tight_layout()
 
@@ -227,7 +245,6 @@ def aggregate_region(region):
 
     cens_div = config.regions.loc[region, 'us_census_div']
 
-    note = "(PJ/PJ)" # TODO unify units
     curr = config.params['aeo_currency']
     curr_year = config.params['aeo_currency_year']
 
@@ -311,7 +328,7 @@ def aggregate_region(region):
                 curs.execute(f"""REPLACE INTO
                         Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{in_comm}', '{tech}', {vint}, '{out_comm}', {eff}, '({eff_metric})',
+                        VALUES('{region}', '{in_comm}', '{tech}', {vint}, '{out_comm}', {eff}, '(PJ/PJ, {eff_metric})',
                         '{aeo_ref}', {aeo_year}, 1, 1, 1, 1, 3, 1)""")
     
 
@@ -358,7 +375,7 @@ def aggregate_region(region):
     """
 
     ## Adding arbitrary c2a as a default value to all technologies
-    note = ("(PJ/Munit.yr) Arbitrary but sufficiently high to satisfy demand in all hours. Actual activity cont"
+    note = ("(PJ/Munity) Arbitrary but sufficiently high to satisfy demand in all hours. Actual activity cont"
             "rolled by AnnualCapacityFactor tables and DemandActivity constraint. Result is that all technologi"
             "es are utilised in consistent proportions throughout the year, according to relative size of annua"
             "l capacity factors.")
@@ -381,7 +398,6 @@ def aggregate_region(region):
                         CapacityToActivity(regions, tech, c2a, c2a_notes, dq_est)
                         VALUES('{region}', '{tech}', {c2a}, '{note}', 0)""")
     
-
 
     conn.commit()
     conn.close()
@@ -480,13 +496,13 @@ def aggregate_region_post(region):
                                 MinAnnualCapacityFactor(regions, periods, tech, output_comm, min_acf, min_acf_notes,
                                 reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                                 VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf*0.99}, '{note}',
-                                '{reference}', {nrcan_year}, 2, 1, 1, {utils.dq_time(period, nrcan_year)}, 3, 3)""")
+                                '{reference}', {base_year}, 2, 1, 1, {utils.dq_time(period, base_year)}, 3, 3)""")
                 curs.execute(f"""REPLACE INTO
                                 MaxAnnualCapacityFactor(regions, periods, tech, output_comm, max_acf, max_acf_notes,
                                 reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                                 VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf}, '{note}',
-                                '{reference}', {nrcan_year}, 2, 1, 1, {utils.dq_time(period, nrcan_year)}, 3, 3)""")
-            
+                                '{reference}', {base_year}, 2, 1, 1, {utils.dq_time(period, base_year)}, 3, 3)""")
+         
 
 
     conn.commit()

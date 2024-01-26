@@ -34,6 +34,7 @@ conn.close()
 
 ## Aggregate subsectors
 all_subsectors.aggregate()
+
 for region in config.model_regions:
     all_subsectors.aggregate_region(region)
     space_heating.aggregate(region)
@@ -42,7 +43,10 @@ for region in config.model_regions:
     lighting.aggregate(region)
     appliances.aggregate(region)
     all_subsectors.aggregate_region_post(region)
+
+if not config.params['skip_dsd']: all_subsectors.aggregate_dsd()
+
 all_subsectors.aggregate_post()
 
 # Show any plots that have been made
-pp.show()
+if config.params['show_plots']: pp.show()

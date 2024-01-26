@@ -46,6 +46,7 @@ class config:
         config.fuel_commodities = pd.read_csv(config._input_files + 'fuels.csv', index_col=0)
         config.end_use_demands = pd.read_csv(config._input_files + 'end_use_demands.csv', index_col=0)
         config.time = pd.read_csv(config._input_files + 'time.csv', index_col=0)
+        config.solar_cf = pd.read_csv(config._input_files + 'solar_water_capacity_factor.csv', index_col=0)
 
         config.all_techs = [*config.aeo_techs.index.values, *config.nrcan_techs.index.values]
         config.model_regions = set(config.regions.loc[config.regions['include']].index)

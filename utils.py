@@ -28,7 +28,6 @@ cache_dir = this_dir + "download_cache/"
 input_files = this_dir + 'input_files/'
 excel_template = input_files + 'Template spreadsheet (make a copy).xlsx'
 weather_maps = dict()
-stations = dict()
 
 
 
@@ -53,7 +52,7 @@ def clean_index(df):
 
 def compr_db_url(region, table_number):
 
-    return str(config.params['nrcan_url']).replace('<y>', str(config.params['nrcan_data_year'])).replace('<r>', region.lower()).replace('<t>', str(table_number))
+    return str(config.params['nrcan_url']).replace('<y>', str(config.params['base_year'])).replace('<r>', region.lower()).replace('<t>', str(table_number))
 
 
 
@@ -327,10 +326,8 @@ def working_wheel(is_done):
 def weather_map_data(region, us_data: list) -> pd.Series :
 
     # If the mapper already exists then just use it
-    if region in weather_maps.keys():
-
-        # Matrix multiply map by US data vector to get Canadian data vector and fill in gaps by chronological linear interpolation
-        return pd.Series(np.matmul(weather_maps[region], us_data)).interpolate(method='linear')
+    if region in weather_maps.keys(): return pd.Series(np.matmul(weather_maps[region], us_data)).interpolate(method='linear')
+        
 
     ## Otherwise generate the map
     print(f"Generating a weather-based data map from {config.regions.loc[region, 'us_state']} to {region}...")
