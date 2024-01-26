@@ -176,8 +176,8 @@ def aggregate(region):
     t21_stk = utils.get_compr_db(region, 21, 16, 30)/1000 # Munit
 
     # Notes for database
-    note = f"{base_year} stock (NRCan, {base_year}) indexed to population (Statcan, {statcan_year}) and distributed evenly over feasible past vintages."
-    reference = f"{nrcan_ref}; {statcan_ref}"
+    note = f"{base_year} stock (NRCan, {base_year}) distributed evenly over feasible past vintages."
+    reference = nrcan_ref
 
     # Get existing capacities from NRCan stock and distribute over past vintages
     for tech, row in nrcan_techs.iterrows():
@@ -191,12 +191,14 @@ def aggregate(region):
         # Get existing capacity (stock) from nrcan and index to population growth
         existing_cap = sum([t21_stk.loc[substock, base_year] for substock in substocks])
         
-        # Index to population and distribute existing capacities evenly over feasible vintages
+        # Distribute existing capacities evenly over feasible vintages
         vints = config.tech_vints[tech]
-        existing_cap *= pop.loc[config.model_periods[0]].values[0] / pop.loc[base_year].values[0] / len(vints)
-
+        existing_cap /= len(vints)
+        
         # Write existing capacities to database
         for vint in vints:
+            if vint + config.lifetimes[tech] <= config.model_periods[0]: continue
+
             curs.execute(f"""REPLACE INTO
                         ExistingCapacity(regions, tech, vintage, exist_cap, exist_cap_units, exist_cap_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)

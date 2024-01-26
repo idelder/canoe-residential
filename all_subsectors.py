@@ -42,6 +42,42 @@ def aggregate():
     conn = sqlite3.connect(database_file)
     curs = conn.cursor() # Cursor object interacts with the sqlite db
 
+
+    """
+    ##############################################################
+        Basic parameters
+    ##############################################################
+    """
+
+    for h, row in config.time.iterrows():
+        curs.execute(f"""REPLACE INTO
+                     time_season(t_season)
+                     VALUES('{row['season']}')""")
+        curs.execute(f"""REPLACE INTO
+                     time_of_day(t_day)
+                     VALUES('{row['time_of_day']}')""")
+        curs.execute(f"""REPLACE INTO
+                     SegFrac(season_name, time_of_day_name, segfrac)
+                     VALUES('{row['season']}', '{row['time_of_day']}', {1/8760})""")
+        
+    for period in [*config.model_periods, config.model_periods[-1] + config.params['period_step']]:
+        curs.execute(f"""REPLACE INTO
+                     time_periods(t_periods, flag)
+                     VALUES({period}, 'f')""")
+        
+    for label, description in {'f': 'future', 'e': 'existing'}.items():
+        curs.execute(f"""INSERT OR IGNORE INTO
+                     time_period_labels(t_period_labels, t_period_labels_desc)
+                     VALUES('{label}', '{description}')""")
+
+    for region, row in config.regions.iterrows():
+        if row['include']:
+            curs.execute(f"""REPLACE INTO
+                        regions(regions, region_note)
+                        VALUES('{region}', '{row['description']})')""")
+
+
+
     """
     ##############################################################
         Commodities
@@ -56,6 +92,11 @@ def aggregate():
         curs.execute(f"""REPLACE INTO
                     commodities(comm_name, flag, comm_desc)
                     VALUES('{row['comm']}', 'd', '(PJ) demand for residential {desc}')""")
+        
+    # CO2-equivalent emission commodity
+    curs.execute(f"""REPLACE INTO
+                commodities(comm_name, flag, comm_desc)
+                VALUES('{config.params['emissions_commodity']}', 'p', '(ktCO2eq) CO2-equivalent emissions')""")
     
     # Dummy output commodity from furnace fan electricity consumption
     curs.execute(f"""REPLACE INTO
@@ -119,7 +160,14 @@ def aggregate():
 
         # Add lifetimes and feasible vintages to config dictionaries
         config.lifetimes[tech] = lifetime
-        config.tech_vints[tech] = utils.feasible_vintages(config.model_periods[0], lifetime)
+        exs_vints = utils.feasible_vintages(base_year, lifetime)
+        config.tech_vints[tech] = exs_vints
+
+        for vint in exs_vints:
+            curs.execute(f"""INSERT OR IGNORE INTO
+                     time_periods(t_periods, flag)
+                     VALUES({vint}, 'e')""")
+
 
 
     conn.commit()

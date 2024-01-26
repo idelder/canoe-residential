@@ -1006,7 +1006,7 @@ CREATE TABLE IF NOT EXISTS "EmissionLimit" (
 	FOREIGN KEY("dq_time") REFERENCES "dq_estimate"("data_quality_time_related"),
 	FOREIGN KEY("dq_geog") REFERENCES "dq_estimate"("data_quality_geography"),
 	FOREIGN KEY("dq_tech") REFERENCES "dq_estimate"("data_quality_technology")
-	PRIMARY KEY("periods","emis_comm"),
+	PRIMARY KEY("regions","periods","emis_comm"),
 	FOREIGN KEY("periods") REFERENCES "time_periods"("t_periods"),
 	FOREIGN KEY("emis_comm") REFERENCES "commodities"("comm_name")
 );

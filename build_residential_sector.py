@@ -32,6 +32,8 @@ if build_db: curs.executescript(open(schema_file, 'r').read())
 conn.commit()
 conn.close()
 
+# setup basic tables (seasons etc)
+
 ## Aggregate subsectors
 all_subsectors.aggregate()
 
@@ -50,3 +52,106 @@ all_subsectors.aggregate_post()
 
 # Show any plots that have been made
 if config.params['show_plots']: pp.show()
+
+# Clone to xlsx
+
+"""
+##############################################################
+    The following is temporary for buildings sector testing
+##############################################################
+"""
+
+# Connect to the new database file
+conn = sqlite3.connect(database_file)
+curs = conn.cursor() # Cursor object interacts with the sqlite db
+
+fuel_costs = {
+    "NG": 8.847,
+    "OIL": 25.163,
+    "ELC": 31.944,
+    "WOOD": 17.38,
+    "LPG": 49.88
+}
+
+base_emis = {
+    "ON": 16800,
+    "AB": 8700
+}
+
+emis = {
+    2025: 1,
+    2030: 0.8,
+    2035: 0.6,
+    2040: 0.4,
+    2045: 0.2,
+    2050: 0
+}
+            
+rep_days = {
+    'D001': 'Jan',
+    'D009': 'Jan',
+    'D045': 'Feb',
+    'D103': 'Apr',
+    'D128': 'May',
+    'D173': 'Jun',
+    'D184': 'Jul'
+    }
+
+seas_tables = [
+    'CapacityFactorTech',
+    'DemandSpecificDistribution'
+    ]
+
+cost_tables = [
+    'Cost_Invest',
+    'Cost_Fixed',
+    'Cost_Variable'
+]
+
+# Delete all days but rep days above
+curs.execute(f"DELETE FROM time_season")
+[curs.execute(f"INSERT OR IGNORE INTO time_season(t_season) VALUES('{day}')") for day in rep_days.keys()]
+
+for table in seas_tables:
+    curs.execute(f"DELETE FROM {table} WHERE season_name NOT IN (SELECT t_season from time_season)")
+
+curs.execute(f"DELETE FROM SegFrac")
+for day in rep_days.keys():
+    for h in range(24):
+        curs.execute(f"""REPLACE INTO SegFrac(season_name, time_of_day_name, segfrac)
+                    VALUES('{day}', '{config.time.loc[h, 'time_of_day']}', {1/(24*7)})""")
+        
+# Renormalise dsd
+total_dsd = sum([dsd[0] for dsd in curs.execute("SELECT dsd FROM DemandSpecificDistribution").fetchall()])
+curs.execute(f"""UPDATE DemandSpecificDistribution
+             SET dsd = dsd / {total_dsd}""")
+
+# Add fuel imports and costs
+for fuel, cost in fuel_costs.items():
+    curs.execute(f"""INSERT OR IGNORE INTO
+                technologies(tech, flag, sector, tech_desc)
+                VALUES('R_IMP_{fuel}', 'r', 'residential', 'testing dummy')""")
+    
+    for region in config.model_regions:
+        curs.execute(f"""REPLACE INTO
+                    Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes, data_flags)
+                    VALUES('{region}', 'R_ethos', 'R_IMP_{fuel}', {config.model_periods[0]}, 'R_{fuel}', 1, 'testing dummy', 'TEST')""")
+        
+        for period in config.model_periods:
+            curs.execute(f"""REPLACE INTO
+                        CostVariable(regions, periods, tech, vintage, data_cost_variable, data_cost_year, data_curr, data_flags)
+                        VALUES('{region}', {period}, 'R_IMP_{fuel}', {config.model_periods[0]}, {cost}, 2020, 'CAD', 'TEST')""")
+
+for region in config.model_regions:
+    for period in config.model_periods:
+        curs.execute(f"""REPLACE INTO
+                    EmissionLimit(regions, periods, emis_comm, emis_limit, emis_limit_units)
+                    VALUES('{region}', {period}, "CO2eq", {emis[period]*base_emis[region]}, "ktCO2eq")""")
+
+for table in cost_tables:
+    curs.execute(f"""UPDATE {table.replace('_','')}
+                 SET {table.lower()} = data_{table.lower()}""")
+
+
+conn.commit()
+conn.close()

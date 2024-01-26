@@ -12,8 +12,8 @@ model_periods:
   
 base_year: 2020
 
-show_plots: true
-skip_dsd: false # Aggregating DSDs is slow so might want to skip sometimes
+show_plots: false
+skip_dsd: true # Aggregating DSDs is slow so might want to skip sometimes
 
 nrcan_url: "https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/data_e/downloads/comprehensive/Excel/<y>/res_<r>_e_<t>.xls"
 nrcan_reference: 'Natural Resources Canada, (2020). Comprehensive Energy Use Database. https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/menus/trends/comprehensive_tables/list.cfm'

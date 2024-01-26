@@ -196,9 +196,9 @@ def aggregate(region):
 
         curs.execute(f"""REPLACE INTO
                     CapacityFactorTech(regions, season_name, time_of_day_name, tech, cf_tech, cf_tech_notes,
-                    reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
+                    reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech, data_flags)
                     VALUES('{region}', '{row['season']}', '{row['time_of_day']}', '{tech}', {cf}, '{note}',
-                    '{reference}', {year}, 3, 3, 3, 1, 1, 1)""")
+                    '{reference}', {year}, 3, 3, 3, 1, 1, 1, 'TEST')""")
 
     pp.figure()
     pp.plot(cfs)

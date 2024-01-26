@@ -165,15 +165,15 @@ def aggregate(region):
 
     ## Cooking ranges and clothes dryers
     # A pain to deal with because both natural gas and electricity variants
-    note = "(Munity/PJ) From generic unit energy consumpion (UEC) from Energy Use Data Handbook as provincial data cannot be disaggregated by both end use and fuel."
+    note = "(Munity/PJ) From generic unit energy consumpion (UEC) of existing stock from Energy Use Data Handbook as provincial data cannot be disaggregated by both end use and fuel."
     reference = config.params['handbook_reference']
 
     # Generic unit energy consumption of nrcan technologies
     hb_uec = utils.get_data(f"https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/data_e/downloads/handbook/Excel/{2020}/res_00_16_e.xls", skiprows=7)
     hb_uec = hb_uec.drop('Unnamed: 0', axis=1).set_index('Unnamed: 1').dropna() * config.params['conversion_factors']['activity']['kwh'] * 1E6 # kWh/unity to PJ/Munity
     utils.clean_index(hb_uec)
-    hb_uec_elc = hb_uec.iloc[0:6]
-    hb_uec_ng = hb_uec.iloc[6:8]
+    hb_uec_elc = hb_uec.iloc[8:14]
+    hb_uec_ng = hb_uec.iloc[14:16]
 
     fuels = ['electricity', 'natural gas'] # fuels to deal with
     hb_uecs = [hb_uec_elc, hb_uec_ng] # reciprocal of base efficiency is "energy consumption"
