@@ -53,7 +53,7 @@ aeo_techs = pd.read_csv(input_files + '/aeo_lighting_data.csv', index_col=0)
 # Gets a value from aeo lighting data
 def get_aeo_value(tech, metric, vintage):
     
-    # Get the latest preceding vintage
+    # Get data from latest preceding vintage
     vints = np.array([int(col) for col in aeo_techs.columns if col.isdecimal()])
     last_vint = vints[vints < vintage][-1]
 
@@ -84,34 +84,35 @@ def aggregate(region):
     conn = sqlite3.connect(database_file)
     curs = conn.cursor() # Cursor object interacts with the sqlite db
 
+
+
     """
     ##############################################################
         Annual Capacity Factor
     ##############################################################
     """
 
-    # Mostly arbitrary but affects lifetime
-
+    # ACF mostly arbitrary but affects lifetime
     acf_note = config.params['lighting']['acf_note']
     min_note = acf_note + " 99% of max acf."
     acf_ref = config.params['lighting']['acf_reference']
-    data_year = config.params['lighting']['acf_data_year']
+    acf_data_year = config.params['lighting']['acf_data_year']
 
-    for tech in [*aeo_techs.index,*exs_techs.index]:
+    for tech in aeo_techs.index:
         for period in config.model_periods:
 
-            dq_time = utils.dq_time(period, data_year)
+            dq_time = utils.dq_time(period, acf_data_year)
 
             curs.execute(f"""REPLACE INTO
                             MinAnnualCapacityFactor(regions, periods, tech, output_comm, min_acf, min_acf_notes,
                             reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                             VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf*0.99}, '{min_note}',
-                            '{acf_ref}', {data_year}, 1, 1, 1, {dq_time}, 1, 1)""")
+                            '{acf_ref}', {acf_data_year}, 1, 1, 1, {dq_time}, 1, 1)""")
             curs.execute(f"""REPLACE INTO
                             MaxAnnualCapacityFactor(regions, periods, tech, output_comm, max_acf, max_acf_notes,
                             reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                             VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf}, '{acf_note}',
-                            '{acf_ref}', {data_year}, 1, 1, 1, {dq_time}, 1, 1)""")
+                            '{acf_ref}', {acf_data_year}, 1, 1, 1, {dq_time}, 1, 1)""")
 
 
 
@@ -199,17 +200,37 @@ def aggregate(region):
     for tech, row in exs_techs.iterrows():
 
         lifetime = row['lamp_life']
+        vints = utils.stock_vintages(base_year, lifetime)
+        if max(vints) + lifetime <= config.model_periods[0]: continue # this technology never reaches the first model period
 
         aeo_note = f"Assumed same as {aeo_equivs[tech]}."
+        
+        tech_desc = f"lighting - {row.loc['description']}"
+        curs.execute(f"""REPLACE INTO
+                    technologies(tech, flag, sector, tech_desc, reference)
+                    VALUES('{tech}', 'p', 'residential', '{tech_desc}', '{nrcan_ref}')""")
         curs.execute(f"""REPLACE INTO
                     LifetimeTech(regions, tech, life, life_notes,
                     reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                     VALUES('{region}', '{tech}', {lifetime}, '(y) {aeo_note}',
                     '{aeo_ref}', {aeo_year}, 1, 1, 1, 1, 3, 1)""")
-        
-        vints = utils.feasible_vintages(config.model_periods[0], lifetime)
 
-        # LEDs didn't come around that long ago sp cap the oldest vintage
+        for period in config.model_periods:
+            if max(vints) + lifetime <= period: continue
+
+            dq_time = utils.dq_time(period, acf_data_year)
+            curs.execute(f"""REPLACE INTO
+                        MinAnnualCapacityFactor(regions, periods, tech, output_comm, min_acf, min_acf_notes,
+                        reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
+                        VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf*0.99}, '{min_note}',
+                        '{acf_ref}', {acf_data_year}, 1, 1, 1, {dq_time}, 1, 1)""")
+            curs.execute(f"""REPLACE INTO
+                        MaxAnnualCapacityFactor(regions, periods, tech, output_comm, max_acf, max_acf_notes,
+                        reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
+                        VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf}, '{acf_note}',
+                        '{acf_ref}', {acf_data_year}, 1, 1, 1, {dq_time}, 1, 1)""")
+
+        # LEDs didn't come around that long ago so cap the oldest vintage
         if not pd.isna(row['oldest_vint']): vints = [vint for vint in vints if vint >= row['oldest_vint']]
         
         # Divide between feasible vintages
@@ -217,6 +238,8 @@ def aggregate(region):
 
         # Write existing data to database
         for vint in vints:
+
+            if vint + lifetime <= config.model_periods[0]: continue
 
             note = (f"Ontario existing stock of residential bulb types by housing type (IESO, 2018) "
                     f"multiplied by housing stock by type (NRCan, {base_year}). "
@@ -236,6 +259,7 @@ def aggregate(region):
                         '{aeo_ref}', {2018}, 1, 1, 1, 1, 3, 1)""")
             
             for period in config.model_periods:
+                if vint > period or vint + lifetime <= period: continue
 
                 curs.execute(f"""REPLACE INTO
                             CostFixed(regions, periods, tech, vintage, cost_fixed_notes, data_cost_fixed, data_cost_year, data_curr,
@@ -253,6 +277,11 @@ def aggregate(region):
 
     for tech in set(aeo_techs.index):
 
+        tech_desc = f"lighting - {row.loc['description']}"
+        curs.execute(f"""REPLACE INTO
+                        technologies(tech, flag, sector, tech_desc, reference)
+                        VALUES('{tech}', 'p', 'residential', '{tech_desc}', '{aeo_ref}')""")
+
         # Vintages for new stock are model periods
         for vint in config.model_periods:
 
@@ -260,7 +289,7 @@ def aggregate(region):
             lifetime =  round(get_aeo_value(tech, 'lamp_life', vint) * conv['lifetime'] / acf)
 
             ## LifetimeProcess
-            # Using lifetime process because some bulb lives improve over model periods in aeo data
+            # Using lifetime process because some bulb lives might improve over model periods in aeo data
             note = f"(y) Lamp life in hours (AEO, {aeo_year}) divided by annual capacity factor (DOE, 2012)."
             reference = f"{aeo_ref}; {acf_ref}"
             curs.execute(f"""REPLACE INTO

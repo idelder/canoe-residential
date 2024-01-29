@@ -2,6 +2,7 @@
 
 period_step: 5
 
+# Must be in ascending order along with all data in tables!
 model_periods:
   - 2025
   - 2030
@@ -12,8 +13,10 @@ model_periods:
   
 base_year: 2020
 
+global_discount_rate: 0.05
+
 show_plots: false
-skip_dsd: true # Aggregating DSDs is slow so might want to skip sometimes
+skip_dsd: false # Aggregating DSDs is slow so might want to skip sometimes
 
 nrcan_url: "https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/data_e/downloads/comprehensive/Excel/<y>/res_<r>_e_<t>.xls"
 nrcan_reference: 'Natural Resources Canada, (2020). Comprehensive Energy Use Database. https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/menus/trends/comprehensive_tables/list.cfm'
@@ -51,9 +54,9 @@ conversion_factors:
     'kwh': 3.6e-9 # kWh to PJ
 
 furnace_fans:
-  out_comm: 'R_ethos_frn_fan' # Dummy output. Can't output heat because the model might try to use the fan as a space heater
-  out_comm_description: 'dummy output from furnace fan electricity consumption'
   output_split: 0.0205 # PJ elc in / PJ heat out, from 6 kWh/MMBtu
+  output_commodity: 'R_NG'
+  efficiency: 0.00001
   reference: 'nyserda. (2013, April 15). Gas Furnace Electricity Usage. https://www.taitem.com/wp-content/uploads/tt_furnace_electricity_use_20130507.pdf'
 
 appliances:

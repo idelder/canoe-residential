@@ -63,6 +63,8 @@ def aggregate(region):
 
         # Write single fuel efficiencies to database
         for vint in config.tech_vints[tech]:
+            if vint + config.lifetimes[tech] <= config.model_periods[0]: continue
+
             curs.execute(f"""REPLACE INTO
                 Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
                 reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
@@ -105,7 +107,7 @@ def aggregate(region):
 
     """
     ##############################################################
-        Existing Capacity
+        Existing Capacity and Annual Capacity Factor
     ##############################################################
     """
 
@@ -114,7 +116,7 @@ def aggregate(region):
 
     # Notes for database
     note = f"{base_year} stock (NRCan, {base_year}) indexed to population (Statcan, {statcan_year}) and distributed evenly over feasible past vintages."
-    reference = f"{nrcan_ref}; {statcan_ref}"
+    reference = nrcan_ref
 
     # Get existing capacities from NRCan stock and distribute over past vintages
     for tech, row in nrcan_techs.iterrows():
@@ -122,15 +124,18 @@ def aggregate(region):
 
         nrcan_stock = row.loc['nrcan_stocks']
 
+        ## Existing capacity
         # Get existing capacity (stock) from nrcan and index to population growth
         existing_cap = t28_stk.loc[nrcan_stock, base_year]
         
         # Index to population and distribute existing capacities evenly over feasible vintages
         vints = config.tech_vints[tech]
-        existing_cap *= pop.loc[config.model_periods[0]].values[0] / pop.loc[base_year].values[0] / len(vints)
+        existing_cap /= len(vints)
 
         # Write existing capacities to database
         for vint in vints:
+            if vint + config.lifetimes[tech] <= config.model_periods[0]: continue
+
             curs.execute(f"""REPLACE INTO
                         ExistingCapacity(regions, tech, vintage, exist_cap, exist_cap_units, exist_cap_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
@@ -138,24 +143,11 @@ def aggregate(region):
                         '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(config.model_periods[0], base_year)}, 1, 1)""")
         
 
+        ## Annual capacity factor for NRCan existing stock
+        # (for new stock pulled in all sectors post processing)
+        max_note = (f"Annual utilisation of units. (annual secondary energy consumption * efficiency) / (c2a * existing stock) (NRCan, {base_year})")
+        min_note = "99% of MaxACF. " + max_note
 
-    """
-    ##############################################################
-        Annual Capacity Factor
-    ##############################################################
-    """
-
-    ## NRCan existing stock
-    max_note = (f"Annual utilisation of units. (annual secondary energy consumption * efficiency) / (c2a * existing stock) (NRCan, {base_year})")
-    min_note = "99% of MaxACF. " + max_note
-
-    # Get existing capacities from NRCan stock and distribute over past vintages
-    for tech, row in nrcan_techs.iterrows():
-        if row['end_use'] != 'water heating': continue
-
-        nrcan_stock = row.loc['nrcan_stocks']
-
-        existing_cap = sum([fetch[0] for fetch in curs.execute(f"SELECT exist_cap FROM ExistingCapacity WHERE tech == '{tech}'").fetchall()])
         act = activity[base_year].loc[nrcan_stock] # annual PJ output
         c2a = config.end_use_demands.loc['water heating', 'c2a']
 
@@ -163,6 +155,8 @@ def aggregate(region):
         acf = act / (existing_cap * c2a)
 
         for period in config.model_periods:
+            if max(vints) + config.lifetimes[tech] <= period: continue
+            
             curs.execute(f"""REPLACE INTO
                             MinAnnualCapacityFactor(regions, periods, tech, output_comm, min_acf, min_acf_notes,
                             reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)

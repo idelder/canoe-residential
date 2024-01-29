@@ -122,9 +122,13 @@ for day in rep_days.keys():
                     VALUES('{day}', '{config.time.loc[h, 'time_of_day']}', {1/(24*7)})""")
         
 # Renormalise dsd
-total_dsd = sum([dsd[0] for dsd in curs.execute("SELECT dsd FROM DemandSpecificDistribution").fetchall()])
-curs.execute(f"""UPDATE DemandSpecificDistribution
-             SET dsd = dsd / {total_dsd}""")
+for end_use in config.end_use_demands['comm']:
+    for region in config.model_regions:
+        total_dsd = sum([dsd[0] for dsd in curs.execute(f"""SELECT dsd FROM DemandSpecificDistribution
+                                                        WHERE demand_name == '{end_use}' AND regions == '{region}'""").fetchall()])
+        curs.execute(f"""UPDATE DemandSpecificDistribution
+                    SET dsd = dsd / {total_dsd}
+                    WHERE demand_name == '{end_use}' and regions = '{region}'""")
 
 # Add fuel imports and costs
 for fuel, cost in fuel_costs.items():

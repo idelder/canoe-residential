@@ -199,11 +199,15 @@ def dq_time(from_year, to_year):
 
 
 
-def feasible_vintages(period, lifetime, vint_interval=config.params['period_step']):
+def stock_vintages(stock_year, lifetime, vint_interval=config.params['period_step']) -> list:
 
-    vint_0 = period - period % vint_interval
+    vint_0 = stock_year - stock_year % vint_interval # first stepped back vint
 
-    return [*range(int(vint_0), int(period-lifetime), -int(vint_interval))]
+    # Return any stepped back vintages that are feasible
+    vints = list(range(int(vint_0), int(stock_year-lifetime), -int(vint_interval)))
+    vints.sort()
+
+    return vints
     
 
 

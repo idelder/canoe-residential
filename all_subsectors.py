@@ -75,7 +75,10 @@ def aggregate():
             curs.execute(f"""REPLACE INTO
                         regions(regions, region_note)
                         VALUES('{region}', '{row['description']})')""")
-
+            
+    curs.execute(f"""REPLACE INTO
+                GlobalDiscountRate(rate)
+                VALUES({config.params['global_discount_rate']})""")
 
 
     """
@@ -96,12 +99,7 @@ def aggregate():
     # CO2-equivalent emission commodity
     curs.execute(f"""REPLACE INTO
                 commodities(comm_name, flag, comm_desc)
-                VALUES('{config.params['emissions_commodity']}', 'p', '(ktCO2eq) CO2-equivalent emissions')""")
-    
-    # Dummy output commodity from furnace fan electricity consumption
-    curs.execute(f"""REPLACE INTO
-                commodities(comm_name, flag, comm_desc)
-                VALUES('{config.params['furnace_fans']['out_comm']}', 'p', '(PJ) {config.params['furnace_fans']['out_comm_description']}')""")
+                VALUES('{config.params['emissions_commodity']}', 'e', '(ktCO2eq) CO2-equivalent emissions')""")
 
 
 
@@ -160,13 +158,8 @@ def aggregate():
 
         # Add lifetimes and feasible vintages to config dictionaries
         config.lifetimes[tech] = lifetime
-        exs_vints = utils.feasible_vintages(base_year, lifetime)
+        exs_vints = utils.stock_vintages(base_year, lifetime)
         config.tech_vints[tech] = exs_vints
-
-        for vint in exs_vints:
-            curs.execute(f"""INSERT OR IGNORE INTO
-                     time_periods(t_periods, flag)
-                     VALUES({vint}, 'e')""")
 
 
 
@@ -392,7 +385,6 @@ def aggregate_region(region):
 
         equiv_tech = aeo_techs.loc[aeo_techs['aeo_class']==aeo_class].index.values[0]
         cost_fixed = aeo_techs.loc[equiv_tech, 'cost_fixed']
-        if cost_fixed == 0: continue
 
         note = f"Assumed same as {equiv_tech}."
 
@@ -404,10 +396,11 @@ def aggregate_region(region):
                     reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                     VALUES('{region}', '{tech}', {lifetime}, '{note}',
                     '{aeo_ref}', {aeo_year}, 2, 1, 1, 1, 1, 2)""")
-
+        
+        if cost_fixed == 0: continue
         for vint in config.tech_vints[tech]:
             for period in config.model_periods:
-
+                
                 if period < vint or vint + lifetime <= period: continue
 
                 curs.execute(f"""REPLACE INTO
@@ -423,7 +416,7 @@ def aggregate_region(region):
     """
 
     ## Adding arbitrary c2a as a default value to all technologies
-    note = ("(PJ/Munity) Arbitrary but sufficiently high to satisfy demand in all hours. Actual activity cont"
+    note = ("Arbitrary but sufficiently high to satisfy demand in all hours. Actual activity cont"
             "rolled by AnnualCapacityFactor tables and DemandActivity constraint. Result is that all technologi"
             "es are utilised in consistent proportions throughout the year, according to relative size of annua"
             "l capacity factors.")
@@ -433,18 +426,20 @@ def aggregate_region(region):
         end_use = row['end_use']
 
         c2a = end_use_demands.loc[end_use, 'c2a']
+        unit = end_use_demands.loc[end_use, 'c2a_unit']
         curs.execute(f"""REPLACE INTO
                         CapacityToActivity(regions, tech, c2a, c2a_notes, dq_est)
-                        VALUES('{region}', '{tech}', {c2a}, '{note}', 0)""")
+                        VALUES('{region}', '{tech}', {c2a}, '({unit}) {note}', 0)""")
 
     ## AEO future stock
     for tech, row in aeo_techs.iterrows():
         end_uses = row['end_uses'].split('+')
 
         c2a = end_use_demands.loc[end_uses[0], 'c2a'] # Must be the same for all end uses anyway
+        unit = end_use_demands.loc[end_uses[0], 'c2a_unit']
         curs.execute(f"""REPLACE INTO
                         CapacityToActivity(regions, tech, c2a, c2a_notes, dq_est)
-                        VALUES('{region}', '{tech}', {c2a}, '{note}', 0)""")
+                        VALUES('{region}', '{tech}', {c2a}, '({unit}) {note}', 0)""")
     
 
     conn.commit()
@@ -495,7 +490,20 @@ def aggregate_post():
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                         VALUES('{row[0]}', '{emis_comm}', '{row[1]}', '{row[2]}', {row[3]}, '{row[4]}', {emis_act}, '{emis_units}', '{note}',
                         '{config.params['epa_reference']}', {config.params['epa_year']}, 2, 1, 1, 1, 1, 3)""")
-            
+    
+    """
+    ##############################################################
+        Existing time periods
+    ##############################################################
+    """
+
+    # Add all existing vintages to existing time periods
+    vints = set([fetch[0] for fetch in curs.execute(f"SELECT vintage FROM Efficiency").fetchall() if fetch[0] not in config.model_periods])
+
+    for vint in vints:
+        curs.execute(f"""INSERT OR IGNORE INTO
+                        time_periods(t_periods, flag)
+                        VALUES({vint}, 'e')""")
 
 
     conn.commit()

@@ -57,6 +57,9 @@ def aggregate(region):
         out_comm = end_use_demands.loc[row['end_use'], 'comm']
 
         for period in config.model_periods:
+            if row['end_use'] != 'appliances other':
+                if max(config.tech_vints[tech]) + config.lifetimes[tech] <= period: continue
+
             curs.execute(f"""REPLACE INTO
                             MinAnnualCapacityFactor(regions, periods, tech, output_comm, min_acf, min_acf_notes, dq_est)
                             VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf*0.99}, '{min_note}', 0)""")
@@ -72,8 +75,8 @@ def aggregate(region):
     ##############################################################
     """
 
-    note = f"{base_year} stock (NRCan, {base_year}) indexed to population (Statcan, {statcan_year}) and distributed evenly over feasible past vintages."
-    reference = f"{nrcan_ref}; {statcan_ref}"
+    note = f"{base_year} stock (NRCan, {base_year}) distributed evenly over feasible preceding vintages."
+    reference = nrcan_ref
 
     # Table 31: Appliance Stock by Appliance Type and Energy Source
     t31_elc_stk = utils.get_compr_db(region, 31, 20, 26)/1000 # Munit
@@ -89,20 +92,23 @@ def aggregate(region):
         elif row['fuels'] == 'natural gas':
             exs_cap = t31_ng_stk.loc[row['nrcan_stocks'], base_year]
 
-        # Index to population and distribute existing capacities evenly over feasible vintages
-        vints = [2025] if row['end_use'] == 'appliances other' else config.tech_vints[tech]
-        exs_cap *= pop.loc[config.model_periods[0]].values[0] / pop.loc[base_year].values[0] / len(vints)
-
         # Add to demand for this end use
         if row['end_use'] not in dems.keys(): dems[row['end_use']] = 0
-        dems[row['end_use']] += exs_cap * acf
+        dems[row['end_use']] += exs_cap * end_use_demands.loc[row['end_use'], 'c2a'] * acf
+
+        # Index to population and distribute existing capacities evenly over feasible vintages
+        vints = [base_year] if row['end_use'] == 'appliances other' else config.tech_vints[tech]
+        exs_cap /= len(vints)
 
         # Write existing capacities to database
         for vint in vints:
+            if row['end_use'] != 'appliances other': # appliances other has no lifetime
+                if vint + config.lifetimes[tech] <= config.model_periods[0]: continue
+
             curs.execute(f"""REPLACE INTO
                         ExistingCapacity(regions, tech, vintage, exist_cap, exist_cap_units, exist_cap_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{tech}', {vint}, {exs_cap}, 'Munit', '{note}',
+                        VALUES('{region}', '{tech}', {vint}, {exs_cap}, '(Munit)', '{note}',
                         '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(config.model_periods[0], base_year)}, 1, 1)""")
         
 
@@ -125,7 +131,7 @@ def aggregate(region):
             curs.execute(f"""REPLACE INTO
                     Demand(regions, periods, demand_comm, demand, demand_units, demand_notes,
                     reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                    VALUES('{region}', {period}, '{end_use_demands.loc[end_use, 'comm']}', {dem}, 'Munity', '{note}',
+                    VALUES('{region}', {period}, '{end_use_demands.loc[end_use, 'comm']}', {dem}, '(Munity)', '{note}',
                     '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(period, base_year)}, 1, 1)""")
         
 
@@ -144,7 +150,7 @@ def aggregate(region):
         if 'appliances' not in row['end_use']: continue
         if row['end_use'] in ['appliances clothes dryers', 'appliances cooking ranges']: continue
 
-        vints = [2025] if row['end_use'] == 'appliances other' else config.tech_vints[tech]
+        vints = [base_year] if row['end_use'] == 'appliances other' else config.tech_vints[tech]
 
         note = (f"(Munity/PJ) {base_year} demand divided by {base_year} secondary energy consumption (NRCan, {base_year}). ")
 
@@ -156,6 +162,9 @@ def aggregate(region):
 
         ## Existing Efficiency
         for vint in vints:
+            if row['end_use'] != 'appliances other': # appliances other has no lifetime
+                if vint + config.lifetimes[tech] <= config.model_periods[0]: continue
+
             curs.execute(f"""REPLACE INTO
                     Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
                     reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
@@ -194,6 +203,8 @@ def aggregate(region):
 
             ## Existing Efficiency
             for vint in vints:
+                if vint + config.lifetimes[techs[f]] <= config.model_periods[0]: continue
+                
                 curs.execute(f"""REPLACE INTO
                         Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
