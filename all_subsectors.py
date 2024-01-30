@@ -257,6 +257,8 @@ def aggregate_dsd():
             axs[row, col].set_title(end_use)
             p+=1
 
+            print(region, end_use)
+
             for h in range(8760):
                 curs.execute(f"""REPLACE INTO
                             DemandSpecificDistribution(regions, season_name, time_of_day_name, demand_name, dsd, dsd_notes,
@@ -319,9 +321,6 @@ def aggregate_region(region):
 
         end_uses = row.loc['end_uses'].split("+")
         end_use_ids = row.loc['end_use_ids'].split("+")
-        eff_metric = aeo_res_class.loc[aeo_class, 'Efficiency Metric']
-        if type(eff_metric) is pd.Series: eff_metric = eff_metric.values[0]
-
 
         # All future periods are valid vintages
         for vint in config.tech_vints[tech]:
@@ -358,18 +357,22 @@ def aggregate_region(region):
             for e in range(len(end_uses)):
 
                 end_use = end_uses[e]
-                end_use_id = end_use_ids[e]
+                end_use_id = int(end_use_ids[e])
 
                 out_comm = end_use_demands.loc[end_use, 'comm']
                 
                 if type(df2) is pd.DataFrame: eff = df2.loc[(df2['End Use'] == int(end_use_id))]['Efficiency'].values[0]
                 elif type(df2) is pd.Series: eff = df2['Efficiency'] # only one row remaining
 
+                eff_metric = aeo_res_class.loc[aeo_res_class['End Use'] == int(end_use_id)].loc[aeo_class, 'Efficiency Metric']
+                if type(eff_metric) is pd.Series: eff_metric = eff_metric.values[0]
+                if eff_metric in config.params['conversion_factors']['efficiency'].keys(): eff *= config.params['conversion_factors']['efficiency'][eff_metric]
+
                 ## Default Efficiency
                 curs.execute(f"""REPLACE INTO
                         Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{in_comm}', '{tech}', {vint}, '{out_comm}', {eff}, '(PJ/PJ, {eff_metric})',
+                        VALUES('{region}', '{in_comm}', '{tech}', {vint}, '{out_comm}', {eff}, '(PJ/PJ) from {eff_metric}',
                         '{aeo_ref}', {aeo_year}, 1, 1, 1, 1, 3, 1)""")
     
 
@@ -545,7 +548,7 @@ def aggregate_region_post(region):
             note = f"Assumed same as {nrcan_equivs[e]}"
 
             # Get annual capacity factor from equivalent nrcan tech for which we have data
-            acf = curs.execute(f"SELECT max_acf FROM MaxAnnualCapacityFactor WHERE tech == '{nrcan_tech}'").fetchone()[0]
+            acf = curs.execute(f"SELECT max_acf FROM MaxAnnualCapacityFactor WHERE tech == '{nrcan_tech}' and regions == '{region}'").fetchone()[0]
 
             for period in config.model_periods:
                 curs.execute(f"""REPLACE INTO

@@ -100,7 +100,7 @@ def aggregate(region):
         curs.execute(f"""REPLACE INTO
                     Demand(regions, periods, demand_comm, demand, demand_units, demand_notes,
                     reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                    VALUES('{region}', {period}, '{out_comm}', {float(dem.loc[period])}, 'PJ', '{note}',
+                    VALUES('{region}', {period}, '{out_comm}', {float(dem.loc[period])}, '(PJ)', '{note}',
                     '{reference}', {base_year}, 2, 1, 1, {utils.dq_time(period, base_year)}, 1, 3)""")
 
     
@@ -130,7 +130,6 @@ def aggregate(region):
         
         # Index to population and distribute existing capacities evenly over feasible vintages
         vints = config.tech_vints[tech]
-        existing_cap /= len(vints)
 
         # Write existing capacities to database
         for vint in vints:
@@ -139,7 +138,7 @@ def aggregate(region):
             curs.execute(f"""REPLACE INTO
                         ExistingCapacity(regions, tech, vintage, exist_cap, exist_cap_units, exist_cap_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{tech}', {vint}, {existing_cap}, 'Munit', '{note}',
+                        VALUES('{region}', '{tech}', {vint}, {existing_cap / len(vints)}, '(Munit)', '{note}',
                         '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(config.model_periods[0], base_year)}, 1, 1)""")
         
 
@@ -168,35 +167,6 @@ def aggregate(region):
                             VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf}, '{max_note}',
                             '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(period, base_year)}, 1, 1)""")
 
-
-
-    """
-    ##############################################################
-        Capacity factor tech solar hot water
-    ##############################################################
-    """
-
-    tech = aeo_techs.loc[aeo_techs['description'].str.contains('solar')].index.values[0]
-
-    note = "renewables ninja or somesuch"
-    reference = "renewables ninja or somesuch"
-    year = 2019 # if r.ninja
-
-    cfs = list()
-    for h, row in config.time.iterrows():
-
-        cf = config.solar_cf.loc[h, region]
-        cfs.append(cf)
-
-        curs.execute(f"""REPLACE INTO
-                    CapacityFactorTech(regions, season_name, time_of_day_name, tech, cf_tech, cf_tech_notes,
-                    reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech, data_flags)
-                    VALUES('{region}', '{row['season']}', '{row['time_of_day']}', '{tech}', {cf}, '{note}',
-                    '{reference}', {year}, 3, 3, 3, 1, 1, 1, 'TEST')""")
-
-    pp.figure()
-    pp.plot(cfs)
-    pp.title(f"{region} solar water availability factors")
 
     conn.commit()
     conn.close()

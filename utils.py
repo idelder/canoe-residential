@@ -56,7 +56,7 @@ def compr_db_url(region, table_number):
 
 
 
-def get_statcan_table(table, save_as=None, use_cache=True):
+def get_statcan_table(table, save_as=None, use_cache=True, **kwargs):
 
     if save_as == None: save_as = f"statcan_{table}.csv"
     if os.path.splitext(save_as)[1] != ".csv": save_as += ".csv"
@@ -65,7 +65,7 @@ def get_statcan_table(table, save_as=None, use_cache=True):
 
         try:
 
-            df = pd.read_csv(cache_dir + save_as)
+            df = pd.read_csv(cache_dir + save_as, index_col=0)
             
             print(f"Got Statcan table {table} from local cache.")
             return df
@@ -81,24 +81,20 @@ def get_statcan_table(table, save_as=None, use_cache=True):
     # If successful, download the table
     if response['status'] == 'SUCCESS':
 
+        print(f"Downloading Statcan table {table}...")
+
         # Download and open the zip file
         filehandle,_ = urllib.request.urlretrieve(response['object'])
         zip_file_object = zipfile.ZipFile(filehandle, 'r')
 
         # Read the table from inside the zip file
         from_file = zip_file_object.open(f"{table}.csv", "r")
-
-        # Write the table to download cache
-        to_file = open(cache_dir + save_as, "wb")
-        to_file.write(from_file.read())
-
-        # Close files
+        df = pd.read_csv(from_file, **kwargs)
         from_file.close()
-        to_file.close()
-        
-        df = pd.read_csv(cache_dir + save_as)
 
-        print(f"Successfully downloaded Statcan table {table}.")
+        df.to_csv(cache_dir + save_as)
+
+        print(f"Cached Statcan table {table}.")
         return df
 
     else:

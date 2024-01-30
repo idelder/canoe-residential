@@ -11,6 +11,7 @@ import space_cooling
 import water_heating
 import lighting
 import appliances
+import utils
 from setup import config
 from matplotlib import pyplot as pp
 
@@ -31,8 +32,6 @@ if build_db: curs.executescript(open(schema_file, 'r').read())
 
 conn.commit()
 conn.close()
-
-# setup basic tables (seasons etc)
 
 ## Aggregate subsectors
 all_subsectors.aggregate()
@@ -75,7 +74,8 @@ fuel_costs = {
 
 base_emis = {
     "ON": 16800,
-    "AB": 8700
+    "AB": 8700,
+    "BC": 300
 }
 
 emis = {
@@ -87,20 +87,19 @@ emis = {
     2050: 0
 }
             
-rep_days = {
-    'D001': 'Jan',
-    'D009': 'Jan',
-    'D045': 'Feb',
-    'D103': 'Apr',
-    'D128': 'May',
-    'D173': 'Jun',
-    'D184': 'Jul'
-    }
+rep_days = [
+    'D001',
+    'D009',
+    'D045', # Coldest day ON 2020
+    'D103',
+    'D128',
+    'D173',
+    'D184' # Hottest day ON 2020
+]
 
 seas_tables = [
-    'CapacityFactorTech',
     'DemandSpecificDistribution'
-    ]
+]
 
 cost_tables = [
     'Cost_Invest',
@@ -110,13 +109,13 @@ cost_tables = [
 
 # Delete all days but rep days above
 curs.execute(f"DELETE FROM time_season")
-[curs.execute(f"INSERT OR IGNORE INTO time_season(t_season) VALUES('{day}')") for day in rep_days.keys()]
+[curs.execute(f"INSERT OR IGNORE INTO time_season(t_season) VALUES('{day}')") for day in rep_days]
 
 for table in seas_tables:
     curs.execute(f"DELETE FROM {table} WHERE season_name NOT IN (SELECT t_season from time_season)")
 
 curs.execute(f"DELETE FROM SegFrac")
-for day in rep_days.keys():
+for day in rep_days:
     for h in range(24):
         curs.execute(f"""REPLACE INTO SegFrac(season_name, time_of_day_name, segfrac)
                     VALUES('{day}', '{config.time.loc[h, 'time_of_day']}', {1/(24*7)})""")

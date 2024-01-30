@@ -15,7 +15,7 @@ base_year: 2020
 
 global_discount_rate: 0.05
 
-show_plots: false
+show_plots: true
 skip_dsd: false # Aggregating DSDs is slow so might want to skip sometimes
 
 nrcan_url: "https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/data_e/downloads/comprehensive/Excel/<y>/res_<r>_e_<t>.xls"
@@ -55,8 +55,8 @@ conversion_factors:
 
 furnace_fans:
   output_split: 0.0205 # PJ elc in / PJ heat out, from 6 kWh/MMBtu
-  output_commodity: 'R_NG'
-  efficiency: 0.00001
+  output_commodity: 'R_ELC'
+  efficiency: 0.001
   reference: 'nyserda. (2013, April 15). Gas Furnace Electricity Usage. https://www.taitem.com/wp-content/uploads/tt_furnace_electricity_use_20130507.pdf'
 
 appliances:

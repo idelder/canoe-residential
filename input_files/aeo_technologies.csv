@@ -48,4 +48,4 @@ R_WAH_NG-HEF,NG_WH,NG_WH4,water heating,5,natural gas high efficiency,20,natural
 R_WAH_NG-TYP,NG_WH,NG_WH2,water heating,5,natural gas typical efficiency,20,natural gas,water heating - existing natural gas
 R_WAH_OIL-HEF,DIST_WH,DIST_WH4,water heating,5,oil high efficiency,210,oil,water heating - existing oil
 R_WAH_OIL-TYP,DIST_WH,DIST_WH2,water heating,5,oil typical efficiency,210,oil,water heating - existing oil
-R_WAH_SOLAR-TYP,SOLAR_WH,SOLAR_WH2,water heating,5,solar typical efficiency,80,ethos,
+R_WAH_SOLAR-TYP,SOLAR_WH,SOLAR_WH2,water heating,5,solar typical efficiency,80,ethos,water heating - existing electric

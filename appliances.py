@@ -57,8 +57,8 @@ def aggregate(region):
         out_comm = end_use_demands.loc[row['end_use'], 'comm']
 
         for period in config.model_periods:
-            if row['end_use'] != 'appliances other':
-                if max(config.tech_vints[tech]) + config.lifetimes[tech] <= period: continue
+            if row['end_use'] == 'appliances other': continue # no expansion so creates bugs
+            if max(config.tech_vints[tech]) + config.lifetimes[tech] <= period: continue
 
             curs.execute(f"""REPLACE INTO
                             MinAnnualCapacityFactor(regions, periods, tech, output_comm, min_acf, min_acf_notes, dq_est)
@@ -98,7 +98,6 @@ def aggregate(region):
 
         # Index to population and distribute existing capacities evenly over feasible vintages
         vints = [base_year] if row['end_use'] == 'appliances other' else config.tech_vints[tech]
-        exs_cap /= len(vints)
 
         # Write existing capacities to database
         for vint in vints:
@@ -108,7 +107,7 @@ def aggregate(region):
             curs.execute(f"""REPLACE INTO
                         ExistingCapacity(regions, tech, vintage, exist_cap, exist_cap_units, exist_cap_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{tech}', {vint}, {exs_cap}, '(Munit)', '{note}',
+                        VALUES('{region}', '{tech}', {vint}, {exs_cap / len(vints)}, '(Munit)', '{note}',
                         '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(config.model_periods[0], base_year)}, 1, 1)""")
         
 

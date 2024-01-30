@@ -4,9 +4,11 @@ Written by Ian David Elder for the CANOE model
 """
 
 import os
-import sqlite3
 import pandas as pd
 import yaml
+import requests
+import urllib.request
+import zipfile
 
 
 class config:
@@ -14,6 +16,7 @@ class config:
     # File locations
     _this_dir = os.path.realpath(os.path.dirname(__file__)) + "/"
     _input_files = _this_dir + 'input_files/'
+    _cache_dir = _this_dir + "download_cache/"
 
     tech_vints = {}
     lifetimes = {}
@@ -26,8 +29,9 @@ class config:
         if isinstance(cls._instance, cls): return cls._instance
 
         cls._instance = super(config, cls).__new__(cls, *args, **kwargs)
-        cls._get_params(cls)
-        cls._get_aeo_data(cls)
+        cls._get_params(cls._instance)
+        cls._get_aeo_data(cls._instance)
+        cls._get_population_projections(cls._instance)
 
         print('Instantiated setup config.')
 
@@ -46,12 +50,10 @@ class config:
         config.fuel_commodities = pd.read_csv(config._input_files + 'fuels.csv', index_col=0)
         config.end_use_demands = pd.read_csv(config._input_files + 'end_use_demands.csv', index_col=0)
         config.time = pd.read_csv(config._input_files + 'time.csv', index_col=0)
-        config.solar_cf = pd.read_csv(config._input_files + 'solar_water_capacity_factor.csv', index_col=0)
 
         config.all_techs = [*config.aeo_techs.index.values, *config.nrcan_techs.index.values]
         config.model_regions = set(config.regions.loc[config.regions['include']].index)
-        config.populations = dict()
-        for region in config.model_regions: config.populations[region] = pd.read_excel(config._input_files + "/population.xlsx", sheet_name=region, index_col=0)
+
 
 
     def _get_aeo_data(cls):
@@ -60,7 +62,99 @@ class config:
                                              sheet_name='RSCLASS', skiprows=18, nrows=31, index_col=20).iloc[1:,1:20]
         config.aeo_res_equip = pd.read_excel(config._input_files + 'AEO2023_Reference_case_RDM_technology_menu_rsmess.xlsx',
                                              sheet_name='RSMEQP', skiprows=21, nrows=1084, index_col=28).iloc[2:,1:28]
+        
 
+    
+    def _get_population_projections(cls) -> pd.DataFrame():
+
+        config.populations = dict()
+
+        # Get historical population data from Statcan and take Q1
+        df_exs = config._get_statcan_table(17100009, usecols=[0,1,9])
+        df_exs = df_exs.loc[df_exs['REF_DATE'].str.contains('-01')]
+        df_exs['REF_DATE'] = df_exs['REF_DATE'].str.removesuffix("-01")
+
+        # Get projected population data from Statcan for M1 scenario
+        df_proj = config._get_statcan_table(17100057, usecols=[0,1,3,4,5,12])
+        df_proj['VALUE'] *= 1000
+        df_proj = df_proj.loc[
+            (df_proj['Projection scenario'] == 'Projection scenario M1: medium-growth') & 
+            (df_proj['Sex'] == 'Both sexes') &
+            (df_proj['Age group'] == 'All ages')]
+
+        # For each region, take historical first, then provincial, then index to Canadian when that runs out
+        for region, row in config.regions.iterrows():
+            
+            # Existing data
+            exs = df_exs.loc[df_exs['GEO'].str.upper() == row['description'].upper()].dropna()
+
+            # Projected provincial data
+            prov = df_proj.loc[(df_proj['GEO'].str.upper() == row['description'].upper()) &
+                            (df_proj['REF_DATE'] > int(exs['REF_DATE'].values[-1]))].dropna()
+            
+            # Index missing provincial data to Canadian projections
+            ca = df_proj.loc[(df_proj['GEO'].str.upper() == 'CANADA') & 
+                            (df_proj['REF_DATE'] >= int(prov['REF_DATE'].values[-1]))].dropna()
+            ca['VALUE'] = ca['VALUE'].iloc[1::] * prov['VALUE'].values[-1] / ca['VALUE'].values[0]
+            ca.dropna(inplace=True)
+
+            # Create dataframe of population for all years
+            data = [*exs['VALUE'].to_list(), *prov['VALUE'].to_list(), *ca['VALUE'].to_list()]
+            pop = pd.DataFrame(index = range(int(exs['REF_DATE'].values[0]), int(ca['REF_DATE'].values[-1]+1)), data = [int(d) for d in data], columns=['population'])
+            pop.index.rename('year', inplace=True)
+
+            # Add to dictionary of regional population projections
+            config.populations[region] = pop
+
+        
+
+    # Have to put this here or it's awkward circular imports with utils
+    def _get_statcan_table(table, save_as=None, use_cache=True, **kwargs):
+        
+        if save_as == None: save_as = f"statcan_{table}.csv"
+        if os.path.splitext(save_as)[1] != ".csv": save_as += ".csv"
+
+        if use_cache and os.path.isfile(config._cache_dir + save_as):
+
+            try:
+
+                df = pd.read_csv(config._cache_dir + save_as, index_col=0)
+                
+                print(f"Got Statcan table {table} from local cache.")
+                return df
+            
+            except Exception as e:
+
+                print(f"Could not get Statcan table {table} from local cache. Trying to download instead.")
+
+        # Make a request from the API for the table, returns response status and url for download
+        url = f"https://www150.statcan.gc.ca/t1/wds/rest/getFullTableDownloadCSV/{table}/en"
+        response = requests.get(url).json()
+
+        # If successful, download the table
+        if response['status'] == 'SUCCESS':
+
+            print(f"Downloading Statcan table {table}...")
+
+            # Download and open the zip file
+            filehandle,_ = urllib.request.urlretrieve(response['object'])
+            zip_file_object = zipfile.ZipFile(filehandle, 'r')
+
+            # Read the table from inside the zip file
+            from_file = zip_file_object.open(f"{table}.csv", "r")
+            df = pd.read_csv(from_file, **kwargs)
+            from_file.close()
+
+            df.to_csv(config._cache_dir + save_as)
+
+            print(f"Cached Statcan table {table}.")
+            return df
+
+        else:
+
+            print(f"Request for {table} from Statcan failed. Status: {response['status']}")
+            return None
+        
 
 
 # Instantiate on import
