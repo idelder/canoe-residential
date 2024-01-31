@@ -225,16 +225,10 @@ def aggregate_dsd():
         # Table 14: Total Households by Building Type and Energy Source
         t14 = utils.get_compr_db(region, 14, 9, 12)[base_year] / 100 # % shares
 
-        # Sample data generation
-        n_plots = 11
-
         # Create figure and axes
         fig, axs = pp.subplots(4, 3, figsize=(15, 10))  # 4 rows, 3 columns
-        fig.suptitle(f"{region} demand specific distributions")
-            
-        # Hide the last subplot (bottom right) if n_plots is not a multiple of 3
-        if n_plots % 3 != 0:
-            axs[-1, -1].axis('off')
+        axs[-1, -1].axis('off')
+        fig.suptitle(f"{region} demand specific distributions (blue). Weekly profile in red.")
 
         p = 0 # plot tracker
         for end_use, row in config.end_use_demands.iterrows():
@@ -244,8 +238,9 @@ def aggregate_dsd():
             # Consumption for each housing type times provincial stock of that housing type
             con = sum([t14[housing_type] * cons[state][housing_type][end_use] for housing_type in t14.index])
 
-            # Map space heating, cooling to temperature and dew point temp (humidity). Note: this introduces weather efficiency to the demand!
-            if row['use_weather_map']: con = utils.weather_map_data(region, con.to_list())
+            # Map space heating, cooling to temperature and dew point temp (humidity). Note: this might introduce weather efficiency to the demand!
+            time_of_week = None
+            if row['use_weather_map']: con, time_of_week = utils.weather_map_data(region, con.to_numpy())
 
             # Normalise
             dsd = (con / con.sum()).to_list()
@@ -254,19 +249,21 @@ def aggregate_dsd():
             row = p // 3  # Integer division to determine row
             col = p % 3   # Modulo to determine column
             axs[row, col].plot(dsd)
+            if time_of_week is not None: axs[row, col].twinx().plot(range(0,8736,52), time_of_week, 'r-') # time of week multipliers overlaid
             axs[row, col].set_title(end_use)
             p+=1
 
-            print(region, end_use)
+            try:
+                for h in range(8760):
+                    curs.execute(f"""REPLACE INTO
+                                DemandSpecificDistribution(regions, season_name, time_of_day_name, demand_name, dsd, dsd_notes,
+                                reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
+                                VALUES('{region}', '{config.time.loc[h, 'season']}', '{config.time.loc[h, 'time_of_day']}', '{demand_comm}', '{dsd[h]}', '{note}',
+                                '{reference}', 2018, 3, 2, 1, {utils.dq_time(base_year, 2018)}, 3, 3)""")
+            except: pp.show()
 
-            for h in range(8760):
-                curs.execute(f"""REPLACE INTO
-                            DemandSpecificDistribution(regions, season_name, time_of_day_name, demand_name, dsd, dsd_notes,
-                            reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                            VALUES('{region}', '{config.time.loc[h, 'season']}', '{config.time.loc[h, 'time_of_day']}', '{demand_comm}', '{dsd[h]}', '{note}',
-                            '{reference}', 2018, 3, 2, 1, {utils.dq_time(base_year, 2018)}, 3, 3)""")
-                
         pp.tight_layout()
+
 
     conn.commit()
     conn.close()

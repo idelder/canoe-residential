@@ -20,6 +20,8 @@ import time
 import threading
 import sys
 import numpy as np
+from datetime import datetime
+from matplotlib import pyplot as pp
 
 
 
@@ -27,6 +29,8 @@ this_dir = os.path.realpath(os.path.dirname(__file__)) + "/"
 cache_dir = this_dir + "download_cache/"
 input_files = this_dir + 'input_files/'
 excel_template = input_files + 'Template spreadsheet (make a copy).xlsx'
+
+base_year = config.params['base_year']
 weather_maps = dict()
 
 
@@ -222,7 +226,7 @@ class DatabaseConverter:
 
         return cls._instance
 
-    def clone_sqlite_to_excel(self, from_sqlite_file, to_excel_file, excel_template_file=None):
+    def clone_sqlite_to_excel(self, from_sqlite_file: str, to_excel_file: str, excel_template_file: str = None):
         
         # Make sure behaviour is understood
         overwrite = input(f"\nAbout to clone {os.path.basename(from_sqlite_file)} "\
@@ -323,10 +327,10 @@ def working_wheel(is_done):
 
 
 
-def weather_map_data(region, us_data: list) -> pd.Series :
+def weather_map_data(region, us_data: list) -> pd.Series:
 
     # If the mapper already exists then just use it
-    if region in weather_maps.keys(): return pd.Series(np.matmul(weather_maps[region], us_data)).interpolate(method='linear')
+    if region in weather_maps.keys(): return apply_weather_map(region, us_data)
         
 
     ## Otherwise generate the map
@@ -336,7 +340,12 @@ def weather_map_data(region, us_data: list) -> pd.Series :
     days_in_months = [31,28,31,30,31,30,31,31,30,31,30,31]
 
     # Weather data from the US
-    df_us_wth = get_data(config.params['weather']['us']['url'].replace('<st>', str(int(config.regions.loc[region, 'us_station']))), index_col=1, usecols=range(15))
+    df_us_wth = get_data(
+        config.params['weather']['us']['url']
+        .replace('<st>', str(int(config.regions.loc[region, 'us_station'])))
+        .replace('<y>', str(config.params['weather']['us']['year']))
+        , index_col=1, usecols=range(15)
+        )
     df_us_wth = df_us_wth.loc[df_us_wth.index.str.contains('53')] # TODO This may not apply to all stations in retrospect...
     df_us = pd.DataFrame(index=range(8760))
 
@@ -362,30 +371,63 @@ def weather_map_data(region, us_data: list) -> pd.Series :
     # Fill in temperature gaps by chronological linear interpolation
     df_us.interpolate(method='linear', axis='columns', inplace=True)
 
-    # Diurnal factor on data
-    diurnal = [sum(us_data[h:364*24+h:24]) for h in range(24)]
-    diurnal /= np.mean(diurnal)
-
     # Canadian weather data
-    df_ca = get_data(config.params['weather']['canada']['url'].replace('<st>', str(int(config.regions.loc[region, 'ca_station']))).replace('<r>', region), encoding='unicode_escape', usecols=range(12)).iloc[0:8760]
+    df_ca = get_data(
+        config.params['weather']['canada']['url']
+        .replace('<st>', str(int(config.regions.loc[region, 'ca_station'])))
+        .replace('<r>', region)
+        .replace('<y>', str(base_year))
+        , encoding='unicode_escape', usecols=range(12)
+        ).iloc[0:8760]
 
     # A 2D matrix map of which US data points to use per Canadian datum
     weather_maps[region] = np.zeros((8760,8760))
 
     for i, row in df_ca.iterrows():
-        h = i % 24
 
         # For this datum, boolean vector of relevant data in US data vector
-        map = 1.0*np.array((row['Temp (°C)'] < df_us['TMP']+1) &
+        row_map = 1.0*np.array((row['Temp (°C)'] < df_us['TMP']+1) &
             (row['Temp (°C)'] > df_us['TMP']-1) &
             (row['Dew Point Temp (°C)'] > df_us['DEW']-1) &
             (row['Dew Point Temp (°C)'] < df_us['DEW']+1)).transpose()
         
-        # Get the mean of US data and apply diurnal factor
-        map *= np.nan if np.sum(map) == 0 else diurnal[h] / np.sum(map) # want NaN if no matches found
+        # Get the mean of relevant US data and or set NaN if no mappable hours
+        row_map *= np.nan if np.sum(row_map) == 0 else 1 / np.sum(row_map)
 
         # Save these matrix maps per region to save having to repeat the above slow process
-        weather_maps[region][i,:] = map.copy()
+        weather_maps[region][i,:] = row_map.copy()
 
-    # Matrix multiply map by US data vector to get Canadian data vector and fill in gaps by chronological linear interpolation
-    return pd.Series(np.matmul(weather_maps[region], us_data)).interpolate(method='linear')
+
+    return apply_weather_map(region, us_data)
+
+
+def apply_weather_map(region, us_data: list):
+
+    # Canadian data starts as us data mapped to temperature and dew point temperature
+    ca_data = pd.Series(np.matmul(weather_maps[region], us_data)).interpolate(method='linear')
+
+    # Then get the day of week of Jan 1 for each year. Monday is 0, Sunday 6
+    jan_1_us = datetime.weekday(datetime.fromisoformat(f"{config.params['weather']['us']['year']}-01-01"))
+    jan_1_ca = datetime.weekday(datetime.fromisoformat(f"{base_year}-01-01"))
+
+    # Get multipliers for time of the week, hourly
+    daily_avg = np.array([np.mean(us_data[24*d:24*d+24]) for d in range(364)])
+    weekly_avg = np.array([np.mean(us_data[7*24*w:7*24*w+7*24]) for w in range(52)])
+    day_of_week = [np.mean(daily_avg[d:52*7:7]/weekly_avg) for d in range(7)]
+    hour_of_day = [np.mean(us_data[h:24*7*52:24]/daily_avg) for h in range(24)]
+    #time_of_week = [day_of_week[h//24] * hour_of_day[h%24] for h in range(24*7)] # hour of day factor times day of week factor
+    time_of_week = [np.mean(us_data[h:24*7*52:24*7]/weekly_avg) for h in range(24*7)] # hour of week factor
+
+    # Shift multipliers to correct day of week based on jan 1 day
+    time_of_week_zeroed = time_of_week[-24*jan_1_us::] + time_of_week[0:-24*jan_1_us] # starts on monday
+    tow_mults = time_of_week_zeroed[24*jan_1_ca::] + time_of_week_zeroed[0:24*jan_1_ca] # starts on jan 1 day base year
+    
+    # Take hourly time of week multiplier and stretch out to whole year (8760)
+    tow_mults = tow_mults*52 + tow_mults[0:24] # 52 weeks + 1 day in a year
+    tow_mults /= np.mean(tow_mults) # normalise
+
+    # Apply time of week multipliers
+    ca_data *= tow_mults
+    
+    # Return mapped data and time-of-week multipliers Mon -> Sun
+    return ca_data, time_of_week_zeroed/np.mean(time_of_week_zeroed)

@@ -19,6 +19,8 @@ this_dir = os.path.realpath(os.path.dirname(__file__)) + "/"
 input_files = this_dir + 'input_files/'
 schema_file = input_files + "canoe_schema.sql"
 database_file = this_dir + "residential.sqlite"
+excel_template_file = input_files + "Template spreadsheet (make a copy).xlsx"
+excel_target_file = this_dir + "residential.xlsx"
 
 # Check if database exists or needs to be built
 build_db = not os.path.exists(database_file)
@@ -51,8 +53,7 @@ all_subsectors.aggregate_post()
 
 # Show any plots that have been made
 if config.params['show_plots']: pp.show()
-
-# Clone to xlsx
+if config.params['clone_to_xlsx']: utils.DatabaseConverter().clone_sqlite_to_excel(database_file, excel_target_file, excel_template_file=excel_template_file)
 
 """
 ##############################################################

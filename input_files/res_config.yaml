@@ -17,6 +17,7 @@ global_discount_rate: 0.05
 
 show_plots: true
 skip_dsd: false # Aggregating DSDs is slow so might want to skip sometimes
+clone_to_xlsx: true
 
 nrcan_url: "https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/data_e/downloads/comprehensive/Excel/<y>/res_<r>_e_<t>.xls"
 nrcan_reference: 'Natural Resources Canada, (2020). Comprehensive Energy Use Database. https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/menus/trends/comprehensive_tables/list.cfm'
@@ -89,8 +90,9 @@ resstock:
 
 weather:
   us:
-    url: 'https://www.ncei.noaa.gov/data/global-hourly/access/2018/<st>.csv'
-    reference: 'National Centers for Environmental Information. (2018). Integrated Surface Dataset (Global). https://www.ncei.noaa.gov/access/search/data-search/global-hourly'
+    year: 2018
+    url: 'https://www.ncei.noaa.gov/data/global-hourly/access/<y>/<st>.csv'
+    reference: 'National Centers for Environmental Information. (<y>). Integrated Surface Dataset (Global). https://www.ncei.noaa.gov/access/search/data-search/global-hourly'
   canada:
-    url: 'https://dd.weather.gc.ca/climate/observations/hourly/csv/<r>/climate_hourly_<r>_<st>_2020_P1H.csv'
+    url: 'https://dd.weather.gc.ca/climate/observations/hourly/csv/<r>/climate_hourly_<r>_<st>_<y>_P1H.csv'
     reference: 'Meteorological Services of Canada. (<y>). Hourly Climate Observations - Web Accessible Folder. https://dd.weather.gc.ca/climate/observations/hourly/csv/'
