@@ -12,10 +12,6 @@ import sqlite3
 from matplotlib import pyplot as pp
 from setup import config
 
-this_dir = os.path.realpath(os.path.dirname(__file__)) + "/"
-schema_file = this_dir + "canoe_schema.sql"
-database_file = this_dir + "residential.sqlite"
-
 # Shortens lines a bit
 base_year = config.params['base_year']
 nrcan_ref = config.params['nrcan_reference']
@@ -34,7 +30,7 @@ aeo_res_equip = config.aeo_res_equip
 def aggregate(region):
 
     # Connect to the new database file
-    conn = sqlite3.connect(database_file)
+    conn = sqlite3.connect(config.database_file)
     curs = conn.cursor() # Cursor object interacts with the sqlite db
 
 

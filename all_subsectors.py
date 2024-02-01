@@ -12,13 +12,6 @@ import sqlite3
 import numpy as np
 from matplotlib import pyplot as pp
 
-
-this_dir = os.path.realpath(os.path.dirname(__file__)) + "/"
-input_files = this_dir + 'input_files/'
-schema_file = this_dir + "canoe_schema.sql"
-database_file = this_dir + "residential.sqlite"
-
-
 # Shortens lines a bit
 nrcan_techs = config.nrcan_techs
 aeo_techs = config.aeo_techs
@@ -39,7 +32,7 @@ conversion_factors = config.params['conversion_factors']
 def aggregate():
 
     # Connect to the new database file
-    conn = sqlite3.connect(database_file)
+    conn = sqlite3.connect(config.database_file)
     curs = conn.cursor() # Cursor object interacts with the sqlite db
 
 
@@ -171,7 +164,7 @@ def aggregate():
 # Doing all regions at once because some regions might share equivalent states and this process is slow
 def aggregate_dsd():
 
-    conn = sqlite3.connect(database_file)
+    conn = sqlite3.connect(config.database_file)
     curs = conn.cursor() # Cursor object interacts with the sqlite db
 
     """
@@ -184,7 +177,7 @@ def aggregate_dsd():
                  f"{config.params['weather']['us']['reference']}; "
                  f"{config.params['weather']['canada']['reference'].replace('<y>', str(base_year))}")
 
-    res_config = pd.read_csv(input_files + 'resstock.csv', index_col=0)
+    res_config = pd.read_csv(config.input_files + 'resstock.csv', index_col=0)
     cons = dict() # 8760 hourly energy consumption by state, housing type, and end use, (kWh)
 
     ## Get end use energy consumptions from resstock columns and divide by number of housing units represented
@@ -274,7 +267,7 @@ def aggregate_dsd():
 def aggregate_region(region):
 
     # Connect to the new database file
-    conn = sqlite3.connect(database_file)
+    conn = sqlite3.connect(config.database_file)
     curs = conn.cursor() # Cursor object interacts with the sqlite db
 
     """
@@ -450,7 +443,7 @@ def aggregate_region(region):
 def aggregate_post():
 
     # Connect to the new database file
-    conn = sqlite3.connect(database_file)
+    conn = sqlite3.connect(config.database_file)
     curs = conn.cursor() # Cursor object interacts with the sqlite db
 
     """
@@ -463,7 +456,7 @@ def aggregate_post():
     emis_units = config.params['emission_activity_units']
 
     # Get emissions factors for fuels in ktCO2eq/PJ_in
-    emis_fact = pd.read_excel(input_files+"/ghg-emission-factors-hub.xlsx", skiprows=13, nrows=76, index_col=2)[['CO2 Factor', 'CH4 Factor', 'N2O Factor']].iloc[1::].dropna()
+    emis_fact = pd.read_excel(config.input_files+"/ghg-emission-factors-hub.xlsx", skiprows=13, nrows=76, index_col=2)[['CO2 Factor', 'CH4 Factor', 'N2O Factor']].iloc[1::].dropna()
     emis_fact = emis_fact[pd.to_numeric(emis_fact['CO2 Factor'], errors='coerce').notnull()]
     for fact in emis_fact.columns: emis_fact[fact] *= conversion_factors['epa_units'][fact.strip(' Factor')] * conversion_factors['gwp'][fact.strip(' Factor')]
     emis_fact[emis_comm] = emis_fact.sum(axis=1)
@@ -515,7 +508,7 @@ def aggregate_post():
 def aggregate_region_post(region):
 
     # Connect to the new database file
-    conn = sqlite3.connect(database_file)
+    conn = sqlite3.connect(config.database_file)
     curs = conn.cursor() # Cursor object interacts with the sqlite db
 
     """

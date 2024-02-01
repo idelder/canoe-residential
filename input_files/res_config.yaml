@@ -15,7 +15,12 @@ base_year: 2020
 
 global_discount_rate: 0.05
 
-show_plots: true
+sqlite_schema: "canoe_schema.sql"
+sqlite_database: "residential.sqlite"
+excel_template: "Template spreadsheet (make a copy).xlsx"
+excel_output: "residential.xlsx"
+
+show_plots: false
 skip_dsd: false # Aggregating DSDs is slow so might want to skip sometimes
 clone_to_xlsx: true
 
@@ -23,7 +28,7 @@ nrcan_url: "https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/data_e/downloa
 nrcan_reference: 'Natural Resources Canada, (2020). Comprehensive Energy Use Database. https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/menus/trends/comprehensive_tables/list.cfm'
 handbook_reference: 'Natural Resources Canada, (2020). Energy Use Data Handbook Tables. https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/menus/trends/handbook/tables.cfm'
 
-aeo_reference: 'EIA. (2023). Updated Buildings Sector Appliance and Equipment Costs and Efficiency—Reference case [dataset]. https://www.eia.gov/analysis/studies/buildings/equipcosts/'
+aeo_reference: 'EIA. (2023). Updated Buildings Sector Appliance and Equipment Costs and Efficiency-Reference case [dataset]. https://www.eia.gov/analysis/studies/buildings/equipcosts/'
 aeo_data_year: 2023
 aeo_currency_year: 2022
 aeo_currency: 'USD'

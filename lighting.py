@@ -11,11 +11,6 @@ import numpy as np
 import sqlite3
 from setup import config
 
-this_dir = os.path.realpath(os.path.dirname(__file__)) + "/"
-input_files = this_dir + 'input_files/'
-schema_file = this_dir + "canoe_schema.sql"
-database_file = this_dir + "residential.sqlite"
-
 # Shortens lines a bit
 statcan_year = config.params['statcan_data_year']
 statcan_ref = config.params['statcan_reference']
@@ -47,8 +42,8 @@ lgt_usage = utils.get_statcan_table(38100048)
 lgt_usage['GEO'] = lgt_usage['GEO'].str.lower()
 
 # Configuration file for lighting technologies, including Ontario shares data from residential end use survey
-exs_techs = pd.read_csv(input_files + '/existing_lighting.csv', index_col=0)
-aeo_techs = pd.read_csv(input_files + '/aeo_lighting_data.csv', index_col=0)
+exs_techs = pd.read_csv(config.input_files + '/existing_lighting.csv', index_col=0)
+aeo_techs = pd.read_csv(config.input_files + '/aeo_lighting_data.csv', index_col=0)
 
 # Gets a value from aeo lighting data
 def get_aeo_value(tech, metric, vintage):
@@ -81,7 +76,7 @@ on_usage = get_usage('ON')
 def aggregate(region):
 
     # Connect to the new database file
-    conn = sqlite3.connect(database_file)
+    conn = sqlite3.connect(config.database_file)
     curs = conn.cursor() # Cursor object interacts with the sqlite db
 
 

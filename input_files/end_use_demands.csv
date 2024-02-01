@@ -2,11 +2,11 @@
 space heating,D_R_SPH,2000,PJ/Munit.y,TRUE
 space cooling,D_R_SPC,2000,PJ/Munit.y,TRUE
 water heating,D_R_WAH,2000,PJ/Munit.y,TRUE
-lighting,D_R_LGT,1,Glmy/Glm.y,TRUE
+lighting,D_R_LGT,1,Glmy/Glm.y,FALSE
 appliances refrigerators,D_R_APP_REF,1,Munity/Munit.y,TRUE
 appliances freezers,D_R_APP_FRZ,1,Munity/Munit.y,TRUE
-appliances dish washers,D_R_APP_DSH,1,Munity/Munit.y,TRUE
-appliances clothes washers,D_R_APP_CWSH,1,Munity/Munit.y,TRUE
-appliances clothes dryers,D_R_APP_CDRY,1,Munity/Munit.y,TRUE
-appliances cooking ranges,D_R_APP_COOK_RNG,1,Munity/Munit.y,TRUE
-appliances other,D_R_APP_OTH,1,Munity/Munit.y,TRUE
+appliances dish washers,D_R_APP_DSH,1,Munity/Munit.y,FALSE
+appliances clothes washers,D_R_APP_CWSH,1,Munity/Munit.y,FALSE
+appliances clothes dryers,D_R_APP_CDRY,1,Munity/Munit.y,FALSE
+appliances cooking ranges,D_R_APP_COOK_RNG,1,Munity/Munit.y,FALSE
+appliances other,D_R_APP_OTH,1,Munity/Munit.y,FALSE

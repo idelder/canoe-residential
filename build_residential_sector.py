@@ -15,22 +15,15 @@ import utils
 from setup import config
 from matplotlib import pyplot as pp
 
-this_dir = os.path.realpath(os.path.dirname(__file__)) + "/"
-input_files = this_dir + 'input_files/'
-schema_file = input_files + "canoe_schema.sql"
-database_file = this_dir + "residential.sqlite"
-excel_template_file = input_files + "Template spreadsheet (make a copy).xlsx"
-excel_target_file = this_dir + "residential.xlsx"
-
 # Check if database exists or needs to be built
-build_db = not os.path.exists(database_file)
+build_db = not os.path.exists(config.database_file)
 
 # Connect to the new database file
-conn = sqlite3.connect(database_file)
+conn = sqlite3.connect(config.database_file)
 curs = conn.cursor() # Cursor object interacts with the sqlite db
 
 # Instantiate the database if it doesn't exist
-if build_db: curs.executescript(open(schema_file, 'r').read())
+if build_db: curs.executescript(open(config.schema_file, 'r').read())
 
 conn.commit()
 conn.close()
@@ -52,8 +45,8 @@ if not config.params['skip_dsd']: all_subsectors.aggregate_dsd()
 all_subsectors.aggregate_post()
 
 # Show any plots that have been made
+if config.params['clone_to_xlsx']: utils.DatabaseConverter().clone_sqlite_to_excel(config.database_file, config.excel_target_file, excel_template_file=config.excel_template_file)
 if config.params['show_plots']: pp.show()
-if config.params['clone_to_xlsx']: utils.DatabaseConverter().clone_sqlite_to_excel(database_file, excel_target_file, excel_template_file=excel_template_file)
 
 """
 ##############################################################
@@ -62,7 +55,7 @@ if config.params['clone_to_xlsx']: utils.DatabaseConverter().clone_sqlite_to_exc
 """
 
 # Connect to the new database file
-conn = sqlite3.connect(database_file)
+conn = sqlite3.connect(config.database_file)
 curs = conn.cursor() # Cursor object interacts with the sqlite db
 
 fuel_costs = {

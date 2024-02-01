@@ -15,8 +15,8 @@ class config:
 
     # File locations
     _this_dir = os.path.realpath(os.path.dirname(__file__)) + "/"
-    _input_files = _this_dir + 'input_files/'
-    _cache_dir = _this_dir + "download_cache/"
+    input_files = _this_dir + 'input_files/'
+    cache_dir = _this_dir + "download_cache/"
 
     tech_vints = {}
     lifetimes = {}
@@ -30,6 +30,7 @@ class config:
 
         cls._instance = super(config, cls).__new__(cls, *args, **kwargs)
         cls._get_params(cls._instance)
+        cls._get_files(cls._instance)
         cls._get_aeo_data(cls._instance)
         cls._get_population_projections(cls._instance)
 
@@ -40,27 +41,36 @@ class config:
 
     def _get_params(cls):
         
-        stream = open(config._input_files + "res_config.yaml", 'r')
+        stream = open(config.input_files + "res_config.yaml", 'r')
         config.params = dict(yaml.load(stream, Loader=yaml.Loader))
 
         config.model_periods = list(config.params['model_periods'])
-        config.aeo_techs = pd.read_csv(config._input_files + 'aeo_technologies.csv', index_col=0)
-        config.nrcan_techs = pd.read_csv(config._input_files + 'nrcan_technologies.csv', index_col=0)
-        config.regions = pd.read_csv(config._input_files + 'regions.csv', index_col=0)
-        config.fuel_commodities = pd.read_csv(config._input_files + 'fuels.csv', index_col=0)
-        config.end_use_demands = pd.read_csv(config._input_files + 'end_use_demands.csv', index_col=0)
-        config.time = pd.read_csv(config._input_files + 'time.csv', index_col=0)
+        config.aeo_techs = pd.read_csv(config.input_files + 'aeo_technologies.csv', index_col=0)
+        config.nrcan_techs = pd.read_csv(config.input_files + 'nrcan_technologies.csv', index_col=0)
+        config.regions = pd.read_csv(config.input_files + 'regions.csv', index_col=0)
+        config.fuel_commodities = pd.read_csv(config.input_files + 'fuels.csv', index_col=0)
+        config.end_use_demands = pd.read_csv(config.input_files + 'end_use_demands.csv', index_col=0)
+        config.time = pd.read_csv(config.input_files + 'time.csv', index_col=0)
 
         config.all_techs = [*config.aeo_techs.index.values, *config.nrcan_techs.index.values]
         config.model_regions = set(config.regions.loc[config.regions['include']].index)
 
 
 
+    def _get_files(cls):
+
+        config.schema_file = config.input_files + config.params['sqlite_schema']
+        config.database_file = config._this_dir + config.params['sqlite_database']
+        config.excel_template_file = config.input_files + config.params['excel_template']
+        config.excel_target_file = config._this_dir + config.params['excel_output']
+
+
+
     def _get_aeo_data(cls):
 
-        config.aeo_res_class = pd.read_excel(config._input_files + 'AEO2023_Reference_case_RDM_technology_menu_rsmess.xlsx',
+        config.aeo_res_class = pd.read_excel(config.input_files + 'AEO2023_Reference_case_RDM_technology_menu_rsmess.xlsx',
                                              sheet_name='RSCLASS', skiprows=18, nrows=31, index_col=20).iloc[1:,1:20]
-        config.aeo_res_equip = pd.read_excel(config._input_files + 'AEO2023_Reference_case_RDM_technology_menu_rsmess.xlsx',
+        config.aeo_res_equip = pd.read_excel(config.input_files + 'AEO2023_Reference_case_RDM_technology_menu_rsmess.xlsx',
                                              sheet_name='RSMEQP', skiprows=21, nrows=1084, index_col=28).iloc[2:,1:28]
         
 
@@ -114,11 +124,11 @@ class config:
         if save_as == None: save_as = f"statcan_{table}.csv"
         if os.path.splitext(save_as)[1] != ".csv": save_as += ".csv"
 
-        if use_cache and os.path.isfile(config._cache_dir + save_as):
+        if use_cache and os.path.isfile(config.cache_dir + save_as):
 
             try:
 
-                df = pd.read_csv(config._cache_dir + save_as, index_col=0)
+                df = pd.read_csv(config.cache_dir + save_as, index_col=0)
                 
                 print(f"Got Statcan table {table} from local cache.")
                 return df
@@ -145,7 +155,7 @@ class config:
             df = pd.read_csv(from_file, **kwargs)
             from_file.close()
 
-            df.to_csv(config._cache_dir + save_as)
+            df.to_csv(config.cache_dir + save_as)
 
             print(f"Cached Statcan table {table}.")
             return df

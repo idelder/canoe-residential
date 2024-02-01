@@ -24,12 +24,6 @@ from datetime import datetime
 from matplotlib import pyplot as pp
 
 
-
-this_dir = os.path.realpath(os.path.dirname(__file__)) + "/"
-cache_dir = this_dir + "download_cache/"
-input_files = this_dir + 'input_files/'
-excel_template = input_files + 'Template spreadsheet (make a copy).xlsx'
-
 base_year = config.params['base_year']
 weather_maps = dict()
 
@@ -65,11 +59,11 @@ def get_statcan_table(table, save_as=None, use_cache=True, **kwargs):
     if save_as == None: save_as = f"statcan_{table}.csv"
     if os.path.splitext(save_as)[1] != ".csv": save_as += ".csv"
 
-    if use_cache and os.path.isfile(cache_dir + save_as):
+    if use_cache and os.path.isfile(config.cache_dir + save_as):
 
         try:
 
-            df = pd.read_csv(cache_dir + save_as, index_col=0)
+            df = pd.read_csv(config.cache_dir + save_as, index_col=0)
             
             print(f"Got Statcan table {table} from local cache.")
             return df
@@ -96,7 +90,7 @@ def get_statcan_table(table, save_as=None, use_cache=True, **kwargs):
         df = pd.read_csv(from_file, **kwargs)
         from_file.close()
 
-        df.to_csv(cache_dir + save_as)
+        df.to_csv(config.cache_dir + save_as)
 
         print(f"Cached Statcan table {table}.")
         return df
@@ -136,7 +130,7 @@ def get_data(url, file_type=None, cache_file_type=None, name=None, use_cache=Tru
     
     # If file type is different from new file type
     if url.split(".")[-1] != cache_file_type: name = os.path.splitext(name)[0] + "."+cache_file_type
-    cache_file = cache_dir + name
+    cache_file = config.cache_dir + name
 
     data = None
     if (use_cache and os.path.isfile(cache_file)):
@@ -167,7 +161,7 @@ def get_data(url, file_type=None, cache_file_type=None, name=None, use_cache=Tru
 
         # Try to cache downloaded file
         try:
-            if not os.path.exists(cache_dir): os.mkdir(cache_dir)
+            if not os.path.exists(config.cache_dir): os.mkdir(config.cache_dir)
 
             if cache_file_type == "csv": data.to_csv(cache_file)
             elif "xl" in cache_file_type: data.to_excel(cache_file)
@@ -228,28 +222,24 @@ class DatabaseConverter:
 
     def clone_sqlite_to_excel(self, from_sqlite_file: str, to_excel_file: str, excel_template_file: str = None):
         
-        # Make sure behaviour is understood
-        overwrite = input(f"\nAbout to clone {os.path.basename(from_sqlite_file)} "\
-                        f"into target {os.path.basename(to_excel_file)}. "\
-                        "This may take some time.\n"
-                        "Any data in the workbook that is not in the sqlite database will be lost. Proceed? (Y/N):")
-        if overwrite.upper() != "Y":
-            print("Did not overwrite workbook.")
-            return
-        
         print(f"\nCloning {os.path.basename(from_sqlite_file)} into target {os.path.basename(to_excel_file)}."\
               "\nThis may take a minute...")
 
-        if not os.path.isfile(to_excel_file):
+        # Check that the target file or template file exists
+        if (excel_template_file is None):
+            print("Aborted. Must provide a template excel file in input files. Check name is correct in res_config.yaml.")
+            return
+        
+        # Handle numbering if existing excel file
+        if os.path.isfile(to_excel_file):
+            name, ext = os.path.splitext(to_excel_file)
+            n = 1
+            while os.path.isfile(f"{name} ({n}){ext}"): n+=1
+            to_excel_file = f"{name} ({n}){ext}"
 
-            # Check that the target file or template file exists
-            if (excel_template_file is None):
-                print("Target excel file does not yet exist. Must provide a template to copy.")
-                return
-            
-            # Copy template to make target file if target doesn't yet exist
-            shutil.copy(excel_template_file, to_excel_file)
-
+        # Copy template to make target file if target doesn't yet exist
+        shutil.copy(excel_template_file, to_excel_file)
+        
         # Load the target workbook
         wb = load_workbook(to_excel_file)
 
@@ -334,7 +324,7 @@ def weather_map_data(region, us_data: list) -> pd.Series:
         
 
     ## Otherwise generate the map
-    print(f"Generating a weather-based data map from {config.regions.loc[region, 'us_state']} to {region}...")
+    print(f"\nGenerating a weather-based data map from {config.regions.loc[region, 'us_state']} to {region}...")
 
     # Days in each month of the year. Need because of dodgy index
     days_in_months = [31,28,31,30,31,30,31,31,30,31,30,31]
@@ -346,7 +336,7 @@ def weather_map_data(region, us_data: list) -> pd.Series:
         .replace('<y>', str(config.params['weather']['us']['year']))
         , index_col=1, usecols=range(15)
         )
-    df_us_wth = df_us_wth.loc[df_us_wth.index.str.contains('53')] # TODO This may not apply to all stations in retrospect...
+    df_us_wth = df_us_wth.loc[df_us_wth.index.str.contains('53')] # TODO This may not apply to all stations watch out
     df_us = pd.DataFrame(index=range(8760))
 
     # Clean up us station data
@@ -383,6 +373,7 @@ def weather_map_data(region, us_data: list) -> pd.Series:
     # A 2D matrix map of which US data points to use per Canadian datum
     weather_maps[region] = np.zeros((8760,8760))
 
+    unmatched = 0.0
     for i, row in df_ca.iterrows():
 
         # For this datum, boolean vector of relevant data in US data vector
@@ -391,11 +382,25 @@ def weather_map_data(region, us_data: list) -> pd.Series:
             (row['Dew Point Temp (°C)'] > df_us['DEW']-1) &
             (row['Dew Point Temp (°C)'] < df_us['DEW']+1)).transpose()
         
-        # Get the mean of relevant US data and or set NaN if no mappable hours
+        # If no match, maybe Canadian temps are hotter or !colder! than all us temps
+        if np.sum(row_map) == 0: # Did not find a match
+            unmatched += 1
+
+            # Hotter than anything in US record so take highest US temp day
+            if row['Temp (°C)'] > np.max(df_us['TMP']) and row['Dew Point Temp (°C)'] > np.max(df_us['DEW']):
+                row_map = 1.0*np.array(df_us['TMP'] == np.max(df_us['TMP'])).transpose()
+
+            # Colder than anything in US record so take lowest US temp day 
+            elif row['Temp (°C)'] < np.min(df_us['TMP']) and row['Dew Point Temp (°C)'] < np.min(df_us['DEW']):
+                row_map = 1.0*np.array(df_us['TMP'] == np.min(df_us['TMP'])).transpose()
+        
+        # Get the mean of relevant US data and or set NaN if no mappable hours -> will be interpolated
         row_map *= np.nan if np.sum(row_map) == 0 else 1 / np.sum(row_map)
 
         # Save these matrix maps per region to save having to repeat the above slow process
         weather_maps[region][i,:] = row_map.copy()
+    
+    print(f"{round((1-unmatched/8760)*100, 1)}% of hours found +-1C temperature match.")
 
 
     return apply_weather_map(region, us_data)

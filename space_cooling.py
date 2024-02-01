@@ -11,11 +11,6 @@ import numpy as np
 import sqlite3
 from setup import config
 
-this_dir = os.path.realpath(os.path.dirname(__file__)) + "/"
-input_files = this_dir + 'input_files/'
-schema_file = this_dir + "canoe_schema.sql"
-database_file = this_dir + "residential.sqlite"
-
 # Shortens lines a bit
 base_year = config.params['base_year']
 nrcan_ref = config.params['nrcan_reference']
@@ -28,7 +23,7 @@ nrcan_techs = config.nrcan_techs
 def aggregate(region):
 
     # Connect to the new database file
-    conn = sqlite3.connect(database_file)
+    conn = sqlite3.connect(config.database_file)
     curs = conn.cursor() # Cursor object interacts with the sqlite db
 
     """
