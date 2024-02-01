@@ -415,8 +415,8 @@ def apply_weather_map(region, us_data: list):
     weekly_avg = np.array([np.mean(us_data[7*24*w:7*24*w+7*24]) for w in range(52)])
     day_of_week = [np.mean(daily_avg[d:52*7:7]/weekly_avg) for d in range(7)]
     hour_of_day = [np.mean(us_data[h:24*7*52:24]/daily_avg) for h in range(24)]
-    #time_of_week = [day_of_week[h//24] * hour_of_day[h%24] for h in range(24*7)] # hour of day factor times day of week factor
-    time_of_week = [np.mean(us_data[h:24*7*52:24*7]/weekly_avg) for h in range(24*7)] # hour of week factor
+    time_of_week = [day_of_week[h//24] * hour_of_day[h%24] for h in range(24*7)] # a. hour of day factor times day of week factor. Use this
+    #time_of_week = [np.mean(us_data[h:24*7*52:24*7]/weekly_avg) for h in range(24*7)] # b. hour of week factor
 
     # Shift multipliers to correct day of week based on jan 1 day
     time_of_week_zeroed = time_of_week[-24*jan_1_us::] + time_of_week[0:-24*jan_1_us] # starts on monday
