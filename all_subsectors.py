@@ -173,8 +173,9 @@ def aggregate_dsd():
     ##############################################################
     """
 
+    us_year = config.params['weather']['us']['year']
     reference = (f"{config.params['resstock']['reference']}; "
-                 f"{config.params['weather']['us']['reference']}; "
+                 f"{config.params['weather']['us']['reference'].replace('<y>', str(us_year))}; "
                  f"{config.params['weather']['canada']['reference'].replace('<y>', str(base_year))}")
 
     res_config = pd.read_csv(config.input_files + 'resstock.csv', index_col=0)
@@ -209,8 +210,8 @@ def aggregate_dsd():
         row = config.regions.loc[region]
         state = row['us_state']
 
-        note = (f"ResStock data for {state} (NREL, 2021) aggregated by end use and mapped to 2018 air temperature "
-                f"and dew point temperature, taking the mean, from station {config.regions.loc[region, 'us_station']} (NCEI, 2018). "
+        note = (f"ResStock data for {state} (NREL, 2021) aggregated by end use and mapped to {us_year} air temperature "
+                f"and dew point temperature, taking the mean, from station {config.regions.loc[region, 'us_station']} (NCEI, {us_year}). "
                 f"Remapped to {base_year} {region} weather from station {config.regions.loc[region, 'ca_station']}, "
                 f"matching temperatures +-1°C and applying a diurnal adjustment as hour-of-day average divided by annual average. "
                 f"Chronological linear interpolation for any missing data.")
@@ -252,7 +253,7 @@ def aggregate_dsd():
                                 DemandSpecificDistribution(regions, season_name, time_of_day_name, demand_name, dsd, dsd_notes,
                                 reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                                 VALUES('{region}', '{config.time.loc[h, 'season']}', '{config.time.loc[h, 'time_of_day']}', '{demand_comm}', '{dsd[h]}', '{note}',
-                                '{reference}', 2018, 3, 2, 1, {utils.dq_time(base_year, 2018)}, 3, 3)""")
+                                '{reference}', {us_year}, 3, 2, 1, {utils.dq_time(base_year, us_year)}, 3, 3)""")
             except: pp.show()
 
         pp.tight_layout()
@@ -552,6 +553,43 @@ def aggregate_region_post(region):
                                 VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf}, '{note}',
                                 '{reference}', {base_year}, 2, 1, 1, {utils.dq_time(period, base_year)}, 3, 3)""")
          
+
+
+    conn.commit()
+    conn.close()
+
+
+
+def cleanup():
+
+    # Connect to the new database file
+    conn = sqlite3.connect(config.database_file)
+    curs = conn.cursor() # Cursor object interacts with the sqlite db
+
+
+
+    """
+    ##############################################################
+        Existing tech with no capacity
+    ##############################################################
+    """
+
+    # Get all tables with tech and region indices
+    all_tables = [fetch[0] for fetch in curs.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
+    t_tables = [table for table in all_tables if 'tech' in [description[0] for description in curs.execute(f"SELECT * FROM '{table}'").description]]
+    tr_tables = [table for table in t_tables if 'regions' in [description[0] for description in curs.execute(f"SELECT * FROM '{table}'").description]]
+
+    for region in config.model_regions:
+        for tech in config.nrcan_techs.index:
+
+            exs_cap = sum([fetch[0] for fetch in curs.execute(f"SELECT exist_cap FROM ExistingCapacity WHERE tech == '{tech}' and regions == '{region}'").fetchall()])
+            if exs_cap == 0:
+                
+                # If no existing capacity for an existing tech, purge tech/region combo from database
+                for table in tr_tables: 
+                    curs.execute(f"DELETE FROM '{table}' WHERE tech == '{tech}' AND regions == '{region}'")
+
+                print(f"Cleaned up existing tech with no existing capacity: {region}, {tech}")
 
 
     conn.commit()

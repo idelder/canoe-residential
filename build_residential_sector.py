@@ -42,6 +42,7 @@ for region in config.model_regions:
 
 if not config.params['skip_dsd']: all_subsectors.aggregate_dsd()
 
+all_subsectors.cleanup()
 all_subsectors.aggregate_post()
 
 # Show any plots that have been made
@@ -69,7 +70,10 @@ fuel_costs = {
 base_emis = {
     "ON": 16800,
     "AB": 8700,
-    "BC": 300
+    "BC": 4300,
+    "MB": 1200,
+    "SK": 1900,
+    "QC": 3100
 }
 
 emis = {
