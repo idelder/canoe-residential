@@ -67,7 +67,7 @@ def aggregate():
         if row['include']:
             curs.execute(f"""REPLACE INTO
                         regions(regions, region_note)
-                        VALUES('{region}', '{row['description']})')""")
+                        VALUES('{region}', '{row['description']}')""")
             
     curs.execute(f"""REPLACE INTO
                 GlobalDiscountRate(rate)
@@ -182,7 +182,8 @@ def aggregate_dsd():
     cons = dict() # 8760 hourly energy consumption by state, housing type, and end use, (kWh)
 
     ## Get end use energy consumptions from resstock columns and divide by number of housing units represented
-    for state in config.regions['us_state'].unique():
+    for state in config.regions.loc[config.regions['include']]['us_state'].unique():
+
         cons[state] = dict()
 
         for housing_type, file_name in config.params['resstock']['housing_files'].items():
@@ -236,7 +237,8 @@ def aggregate_dsd():
             time_of_week = None
             if row['use_weather_map']: con, time_of_week = utils.weather_map_data(region, con.to_numpy())
 
-            # Normalise
+            # Apply tolerance and normalise
+            con.loc[con < con.mean() * config.params['dsd_tolerance']] = 0
             dsd = (con / con.sum()).to_list()
 
             # For plotting DSDs
@@ -523,7 +525,9 @@ def aggregate_region_post(region):
     ## AEO future stock
     # Copy from NRCan existing stock    
     for tech, row in aeo_techs.iterrows():
-        if pd.isna(row['nrcan_equiv']): continue # no NRCan equivalent given
+        if pd.isna(row['nrcan_equiv']):
+            print(f"{tech} has no specific NRCan equivalent and so will have no annual capacity factor.")
+            continue # no NRCan equivalent given
         
         end_uses = row['end_uses'].split('+')
         nrcan_equivs = row['nrcan_equiv'].split('+')

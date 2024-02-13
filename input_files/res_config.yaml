@@ -22,7 +22,7 @@ excel_output: "residential.xlsx"
 
 show_plots: false
 skip_dsd: false # Aggregating DSDs is slow so might want to skip sometimes
-clone_to_xlsx: true
+clone_to_xlsx: false
 
 nrcan_url: "https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/data_e/downloads/comprehensive/Excel/<y>/res_<r>_e_<t>.xls"
 nrcan_reference: 'Natural Resources Canada, (2020). Comprehensive Energy Use Database. https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/menus/trends/comprehensive_tables/list.cfm'
@@ -101,3 +101,5 @@ weather:
   canada:
     url: 'https://dd.weather.gc.ca/climate/observations/hourly/csv/<r>/climate_hourly_<r>_<st>_<y>_P1H.csv'
     reference: 'Meteorological Services of Canada. (<y>). Hourly Climate Observations - Web Accessible Folder. https://dd.weather.gc.ca/climate/observations/hourly/csv/'
+
+dsd_tolerance: 0.02 # Set DSD to zero if less than this times hourly average (i.e. dsd(h) = 0 if dsd(h) < tol * mean(dsd))
