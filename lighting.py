@@ -43,18 +43,20 @@ lgt_usage['GEO'] = lgt_usage['GEO'].str.lower()
 
 # Configuration file for lighting technologies, including Ontario shares data from residential end use survey
 exs_techs = pd.read_csv(config.input_files + '/existing_lighting.csv', index_col=0)
-aeo_techs = pd.read_csv(config.input_files + '/aeo_lighting_data.csv', index_col=0)
+aeo_data = pd.read_csv(config.input_files + '/aeo_lighting_data.csv', index_col=0)
+aeo_techs = pd.read_csv(config.input_files + '/aeo_lighting_technologies.csv', index_col=0)
+aeo_techs = aeo_techs.loc[aeo_techs['include']] # drop techs not to be included
 
 # Gets a value from aeo lighting data
-def get_aeo_value(tech, metric, vintage):
+def get_aeo_value(code, metric, vintage):
     
     # Get data from latest preceding vintage
-    vints = np.array([int(col) for col in aeo_techs.columns if col.isdecimal()])
+    vints = np.array([int(col) for col in aeo_data.columns if col.isdecimal()])
     last_vint = vints[vints < vintage][-1]
+    value = aeo_data.loc[aeo_data['metric']==metric].loc[code, str(last_vint)]
 
     # If no value for that vintage, take existing stock value
-    value = aeo_techs.loc[aeo_techs['metric']==metric].loc[tech, str(last_vint)]
-    if pd.isna(value): value = aeo_techs.loc[aeo_techs['metric']==metric].loc[tech, 'existing']
+    if pd.isna(value): value = aeo_data.loc[aeo_data['metric']==metric].loc[code, 'existing']
     
     return value
 
@@ -147,12 +149,11 @@ def aggregate(region):
         t14 = t14.drop(subcats)
     
     # Mapping existing stock AEO data to existing technologies
-    aeo_equivs = dict()
+    aeo_equivs = dict() # tech name of AEO equivalent
     for tech, row in exs_techs.iterrows():
-        aeo_data = aeo_techs.loc[(aeo_techs['description'].str.contains(row['description'])) & (~pd.isna(aeo_techs['existing']))]\
-                            .pivot_table(values='existing', index='tech', columns='metric')
-        aeo_equivs[tech] = aeo_data.index.values[0]
-        for metric in aeo_data.columns: exs_techs.loc[tech, metric] = aeo_data[metric].values[0]
+        data = aeo_data.loc[aeo_data.index == row['code']].pivot_table(values='existing', index='code', columns='metric')
+        aeo_equivs[tech] = aeo_techs.loc[aeo_techs['code'] == row['code']].index.values[0]
+        for metric in data.columns: exs_techs.loc[tech, metric] = data[metric].values[0]
     
     # Unit conversion of efficacy lm/W to Glmy/PJ
     exs_techs['efficacy'] *= conv['efficacy']
@@ -270,18 +271,18 @@ def aggregate(region):
     ##############################################################
     """
 
-    for tech in set(aeo_techs.index):
+    for tech, row in aeo_techs.iterrows():
 
-        tech_desc = f"lighting - {row.loc['description']}"
+        tech_desc = f"lighting - {row['description']}"
         curs.execute(f"""REPLACE INTO
                         technologies(tech, flag, sector, tech_desc, reference)
                         VALUES('{tech}', 'p', 'residential', '{tech_desc}', '{aeo_ref}')""")
 
         # Vintages for new stock are model periods
         for vint in config.model_periods:
-
+            
             # Lifetime from aeo data converted from hours to years using the annual capacity factor and rounded
-            lifetime =  round(get_aeo_value(tech, 'lamp_life', vint) * conv['lifetime'] / acf)
+            lifetime = round(get_aeo_value(row['code'], 'lamp_life', vint) * conv['lifetime'] / acf)
 
             ## LifetimeProcess
             # Using lifetime process because some bulb lives might improve over model periods in aeo data
@@ -294,7 +295,7 @@ def aggregate(region):
                         '{reference}', {aeo_year}, 1, 1, 1, 1, 3, 1)""")
             
             ## Efficiency
-            efficacy = conv['efficacy'] * get_aeo_value(tech, 'efficacy', vint)
+            efficacy = conv['efficacy'] * get_aeo_value(row['code'], 'efficacy', vint)
             curs.execute(f"""REPLACE INTO
                         Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
@@ -302,7 +303,7 @@ def aggregate(region):
                         '{aeo_ref}', {2018}, 1, 1, 1, 1, 3, 1)""")
             
             ## CostInvest
-            cost_invest = conv['cost'] * get_aeo_value(tech, 'cost_install', vint)
+            cost_invest = conv['cost'] * get_aeo_value(row['code'], 'cost_install', vint)
             curs.execute(f"""REPLACE INTO
                         CostInvest(regions, tech, vintage, data_cost_invest, data_cost_year, data_curr,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
@@ -315,7 +316,7 @@ def aggregate(region):
                 if period < vint or vint + lifetime <= period: continue
                 
                 ## CostFixed
-                cost_fixed = conv['cost'] * get_aeo_value(tech, 'cost_maintain', vint)
+                cost_fixed = conv['cost'] * get_aeo_value(row['code'], 'cost_maintain', vint)
                 curs.execute(f"""REPLACE INTO
                             CostFixed(regions, periods, tech, vintage, data_cost_fixed, data_cost_year, data_curr,
                             reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)

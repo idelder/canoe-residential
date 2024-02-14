@@ -46,6 +46,7 @@ class config:
 
         config.model_periods = list(config.params['model_periods'])
         config.aeo_techs = pd.read_csv(config.input_files + 'aeo_technologies.csv', index_col=0)
+        config.aeo_techs = config.aeo_techs.loc[config.aeo_techs['include']] # drop techs that aren't to be included
         config.nrcan_techs = pd.read_csv(config.input_files + 'nrcan_technologies.csv', index_col=0)
         config.regions = pd.read_csv(config.input_files + 'regions.csv', index_col=0)
         config.fuel_commodities = pd.read_csv(config.input_files + 'fuels.csv', index_col=0)
@@ -75,7 +76,7 @@ class config:
         
 
     
-    def _get_population_projections(cls) -> pd.DataFrame():
+    def _get_population_projections(cls) -> pd.DataFrame:
 
         config.populations = dict()
 

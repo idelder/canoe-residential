@@ -20,8 +20,28 @@ from datetime import datetime
 conn = sqlite3.connect(config.database_file)
 curs = conn.cursor() # Cursor object interacts with the sqlite db
 
-all_tables = [fetch[0] for fetch in curs.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
-t_tables = [table for table in all_tables if 'tech' in [description[0] for description in curs.execute(f"SELECT * FROM '{table}'").description]]
-tr_tables = [table for table in t_tables if 'regions' in [description[0] for description in curs.execute(f"SELECT * FROM '{table}'").description]]
+for region in config.regions:
+    for tech in config.all_techs:
+        
+        vints = config.tech_vints(tech)
+        life = curs.execute(f"SELECT life FROM LifetimeTech WHERE regions == '{region}' AND tech == '{tech}'").fetchone()[0]
+        acf = curs.execute(f"SELECT max_acf FROM MaxAnnualCapacityFactor WHERE regions == '{region}' AND tech == '{tech}'").fetchone()[0]
+        c2a = curs.execute(f"SELECT c2a FROM CapacityToActivity WHERE regions == '{region}' AND tech == '{tech}'").fetchone()[0]
 
-print(tr_tables)
+        annual_act = c2a * acf
+
+        for vint in vints:
+            cost_invest = curs.execute(f"SELECT data_cost_invest FROM CostInvest WHERE regions == '{region}' AND tech == '{tech}' AND vintage == {vint}").fetchone()[0]
+            i = config.params['global_discount_rate']
+            annuity = cost_invest * i * (1+i)^life / ((1+i)^life - 1)
+
+            cost_fixed = curs.execute(f"SELECT data_cost_fixed FROM CostFixed WHERE  regions == '{region}' AND tech == '{tech}' and vintage == {vint}").fetchone()[0]
+
+            lcoa = (cost_fixed + cost_invest) / annuity
+
+            for period in config.model_periods:
+                if vint > period or vint + life <= period: continue
+
+                curs.execute(f"""REPLACE INTO
+                             CostVariable(regions, periods, tech, vintage, data_cost_variable, data_cost_year, data_curr)
+                             VALUES('{region}', {period}, '{tech}', {vint}, {lcoa}, {2022}, '{"USD"}')""")

@@ -52,7 +52,7 @@ def aggregate(region):
         out_comm = end_use_demands.loc[row['end_use'], 'comm']
 
         for period in config.model_periods:
-            if row['end_use'] == 'appliances other': continue # no expansion so creates bugs
+            if row['end_use'] == 'appliances other': continue # no capacity expansion so does not apply
             if max(config.tech_vints[tech]) + config.lifetimes[tech] <= period: continue
 
             curs.execute(f"""REPLACE INTO
@@ -91,13 +91,14 @@ def aggregate(region):
         if row['end_use'] not in dems.keys(): dems[row['end_use']] = 0
         dems[row['end_use']] += exs_cap * end_use_demands.loc[row['end_use'], 'c2a'] * acf
 
+        if row['end_use'] == 'appliances other': continue # appliances other has no capacity
+
         # Index to population and distribute existing capacities evenly over feasible vintages
-        vints = [base_year] if row['end_use'] == 'appliances other' else config.tech_vints[tech]
+        vints = config.tech_vints[tech]
 
         # Write existing capacities to database
         for vint in vints:
-            if row['end_use'] != 'appliances other': # appliances other has no lifetime
-                if vint + config.lifetimes[tech] <= config.model_periods[0]: continue
+            if vint + config.lifetimes[tech] <= config.model_periods[0]: continue
 
             curs.execute(f"""REPLACE INTO
                         ExistingCapacity(regions, tech, vintage, exist_cap, exist_cap_units, exist_cap_notes,
@@ -144,7 +145,7 @@ def aggregate(region):
         if 'appliances' not in row['end_use']: continue
         if row['end_use'] in ['appliances clothes dryers', 'appliances cooking ranges']: continue
 
-        vints = [base_year] if row['end_use'] == 'appliances other' else config.tech_vints[tech]
+        vints = [config.model_periods[0]] if row['end_use'] == 'appliances other' else config.tech_vints[tech]
 
         note = (f"(Munity/PJ) {base_year} demand divided by {base_year} secondary energy consumption (NRCan, {base_year}). ")
 

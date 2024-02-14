@@ -68,7 +68,8 @@ def aggregate():
             curs.execute(f"""REPLACE INTO
                         regions(regions, region_note)
                         VALUES('{region}', '{row['description']}')""")
-            
+    
+    curs.execute(f"DELETE FROM GlobalDiscountRate")
     curs.execute(f"""REPLACE INTO
                 GlobalDiscountRate(rate)
                 VALUES({config.params['global_discount_rate']})""")
@@ -154,111 +155,6 @@ def aggregate():
         exs_vints = utils.stock_vintages(base_year, lifetime)
         config.tech_vints[tech] = exs_vints
 
-
-
-    conn.commit()
-    conn.close()
-
-
-
-# Doing all regions at once because some regions might share equivalent states and this process is slow
-def aggregate_dsd():
-
-    conn = sqlite3.connect(config.database_file)
-    curs = conn.cursor() # Cursor object interacts with the sqlite db
-
-    """
-    ##############################################################
-        Demand specific distribution
-    ##############################################################
-    """
-
-    us_year = config.params['weather']['us']['year']
-    reference = (f"{config.params['resstock']['reference']}; "
-                 f"{config.params['weather']['us']['reference'].replace('<y>', str(us_year))}; "
-                 f"{config.params['weather']['canada']['reference'].replace('<y>', str(base_year))}")
-
-    res_config = pd.read_csv(config.input_files + 'resstock.csv', index_col=0)
-    cons = dict() # 8760 hourly energy consumption by state, housing type, and end use, (kWh)
-
-    ## Get end use energy consumptions from resstock columns and divide by number of housing units represented
-    for state in config.regions.loc[config.regions['include']]['us_state'].unique():
-
-        cons[state] = dict()
-
-        for housing_type, file_name in config.params['resstock']['housing_files'].items():
-            cons[state][housing_type] = dict()
-
-            df_res = utils.get_data(config.params['resstock']['url'].replace("<s>",state.upper()).replace("<f>", file_name).replace("<s>", state.lower()))
-            stock = df_res['units_represented'].values[0]
-
-            for end_use in config.end_use_demands.index:
-                
-                res_cols = res_config.loc[res_config['end_use'] == end_use]
-
-                for res_col in res_cols.index:
-                    
-                    # Divide consumption by number of units represented to get consumption per household
-                    con = df_res[res_col].iloc[[8760, *range(3, 4*8760-1, 4)]].clip(lower=0) / stock # 15-minutely so take every 4th
-
-                    if end_use in cons[state][housing_type].keys(): cons[state][housing_type][end_use] += con
-                    else: cons[state][housing_type][end_use] = con
-
-    
-    ## Multiply energy consumptions from resstock by province housing stocks, apply weather mapping, then normalise to DSD
-    for region in config.model_regions:
-
-        row = config.regions.loc[region]
-        state = row['us_state']
-
-        note = (f"ResStock data for {state} (NREL, 2021) aggregated by end use and mapped to {us_year} air temperature "
-                f"and dew point temperature, taking the mean, from station {config.regions.loc[region, 'us_station']} (NCEI, {us_year}). "
-                f"Remapped to {base_year} {region} weather from station {config.regions.loc[region, 'ca_station']}, "
-                f"matching temperatures +-1°C and applying a diurnal adjustment as hour-of-day average divided by annual average. "
-                f"Chronological linear interpolation for any missing data.")
-
-        # Table 14: Total Households by Building Type and Energy Source
-        t14 = utils.get_compr_db(region, 14, 9, 12)[base_year] / 100 # % shares
-
-        # Create figure and axes
-        fig, axs = pp.subplots(4, 3, figsize=(15, 10))  # 4 rows, 3 columns
-        axs[-1, -1].axis('off')
-        fig.suptitle(f"{region} demand specific distributions (blue). Weekly profile in red.")
-
-        p = 0 # plot tracker
-        for end_use, row in config.end_use_demands.iterrows():
-
-            demand_comm = row['comm']
-
-            # Consumption for each housing type times provincial stock of that housing type
-            con = sum([t14[housing_type] * cons[state][housing_type][end_use] for housing_type in t14.index])
-
-            # Map space heating, cooling to temperature and dew point temp (humidity). Note: this might introduce weather efficiency to the demand!
-            time_of_week = None
-            if row['use_weather_map']: con, time_of_week = utils.weather_map_data(region, con.to_numpy())
-
-            # Apply tolerance and normalise
-            con.loc[con < con.mean() * config.params['dsd_tolerance']] = 0
-            dsd = (con / con.sum()).to_list()
-
-            # For plotting DSDs
-            row = p // 3  # Integer division to determine row
-            col = p % 3   # Modulo to determine column
-            axs[row, col].plot(dsd)
-            if time_of_week is not None: axs[row, col].twinx().plot(range(0,8736,52), time_of_week, 'r-') # time of week multipliers overlaid
-            axs[row, col].set_title(end_use)
-            p+=1
-
-            try:
-                for h in range(8760):
-                    curs.execute(f"""REPLACE INTO
-                                DemandSpecificDistribution(regions, season_name, time_of_day_name, demand_name, dsd, dsd_notes,
-                                reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                                VALUES('{region}', '{config.time.loc[h, 'season']}', '{config.time.loc[h, 'time_of_day']}', '{demand_comm}', '{dsd[h]}', '{note}',
-                                '{reference}', {us_year}, 3, 2, 1, {utils.dq_time(base_year, us_year)}, 3, 3)""")
-            except: pp.show()
-
-        pp.tight_layout()
 
 
     conn.commit()
@@ -442,12 +338,118 @@ def aggregate_region(region):
     conn.close()
 
 
-# For non-regional post-subsector aggregation
-def aggregate_post():
+
+# Doing all regions at once because some regions might share equivalent states and this process is slow
+def aggregate_dsd():
+
+    conn = sqlite3.connect(config.database_file)
+    curs = conn.cursor() # Cursor object interacts with the sqlite db
+
+    """
+    ##############################################################
+        Demand specific distribution
+    ##############################################################
+    """
+
+    us_year = config.params['weather']['us']['year']
+    reference = (f"{config.params['resstock']['reference']}; "
+                 f"{config.params['weather']['us']['reference'].replace('<y>', str(us_year))}; "
+                 f"{config.params['weather']['canada']['reference'].replace('<y>', str(base_year))}")
+
+    res_config = pd.read_csv(config.input_files + 'resstock.csv', index_col=0)
+    cons = dict() # 8760 hourly energy consumption by state, housing type, and end use, (kWh)
+
+    ## Get end use energy consumptions from resstock columns and divide by number of housing units represented
+    for state in config.regions.loc[config.regions['include']]['us_state'].unique():
+
+        cons[state] = dict()
+
+        for housing_type, file_name in config.params['resstock']['housing_files'].items():
+            cons[state][housing_type] = dict()
+
+            df_res = utils.get_data(config.params['resstock']['url'].replace("<s>",state.upper()).replace("<f>", file_name).replace("<s>", state.lower()))
+            stock = df_res['units_represented'].values[0]
+
+            for end_use in config.end_use_demands.index:
+                
+                res_cols = res_config.loc[res_config['end_use'] == end_use]
+
+                for res_col in res_cols.index:
+                    
+                    # Divide consumption by number of units represented to get consumption per household
+                    con = df_res[res_col].iloc[[8760, *range(3, 4*8760-1, 4)]].clip(lower=0) / stock # 15-minutely so take every 4th
+
+                    if end_use in cons[state][housing_type].keys(): cons[state][housing_type][end_use] += con
+                    else: cons[state][housing_type][end_use] = con
+
+    
+    ## Multiply energy consumptions from resstock by province housing stocks, apply weather mapping, then normalise to DSD
+    for region in config.model_regions:
+
+        row = config.regions.loc[region]
+        state = row['us_state']
+
+        note = (f"ResStock data for {state} (NREL, 2021) aggregated by end use and mapped to {us_year} air temperature "
+                f"and dew point temperature, taking the mean, from station {config.regions.loc[region, 'us_station']} (NCEI, {us_year}). "
+                f"Remapped to {base_year} {region} weather from station {config.regions.loc[region, 'ca_station']}, "
+                f"matching temperatures +-1°C and applying a diurnal adjustment as hour-of-day average divided by annual average. "
+                f"Chronological linear interpolation for any missing data.")
+
+        # Table 14: Total Households by Building Type and Energy Source
+        t14 = utils.get_compr_db(region, 14, 9, 12)[base_year] / 100 # % shares
+
+        # Create figure and axes
+        fig, axs = pp.subplots(4, 3, figsize=(15, 10))  # 4 rows, 3 columns
+        axs[-1, -1].axis('off')
+        fig.suptitle(f"{region} demand specific distributions (blue). Weekly profile in red.")
+
+        p = 0 # plot tracker
+        for end_use, row in config.end_use_demands.iterrows():
+
+            demand_comm = row['comm']
+
+            # Consumption for each housing type times provincial stock of that housing type
+            con = sum([t14[housing_type] * cons[state][housing_type][end_use] for housing_type in t14.index])
+
+            # Map space heating, cooling to temperature and dew point temp (humidity). Note: this might introduce weather efficiency to the demand!
+            time_of_week = None
+            if row['use_weather_map']: con, time_of_week = utils.weather_map_data(region, con.to_numpy())
+
+            # Apply tolerance and normalise
+            con.loc[con < con.mean() * config.params['dsd_tolerance']] = 0
+            dsd = (con / con.sum()).to_list()
+
+            # For plotting DSDs
+            row = p // 3  # Integer division to determine row
+            col = p % 3   # Modulo to determine column
+            axs[row, col].plot(dsd)
+            if time_of_week is not None: axs[row, col].twinx().plot(range(0,8736,52), time_of_week, 'r-') # time of week multipliers overlaid
+            axs[row, col].set_title(end_use)
+            p+=1
+
+            try:
+                for h in range(8760):
+                    curs.execute(f"""REPLACE INTO
+                                DemandSpecificDistribution(regions, season_name, time_of_day_name, demand_name, dsd, dsd_notes,
+                                reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
+                                VALUES('{region}', '{config.time.loc[h, 'season']}', '{config.time.loc[h, 'time_of_day']}', '{demand_comm}', '{dsd[h]}', '{note}',
+                                '{reference}', {us_year}, 3, 2, 1, {utils.dq_time(base_year, us_year)}, 3, 3)""")
+            except: pp.show()
+
+        pp.tight_layout()
+
+
+    conn.commit()
+    conn.close()
+
+
+
+def aggregate_emissions():
 
     # Connect to the new database file
     conn = sqlite3.connect(config.database_file)
     curs = conn.cursor() # Cursor object interacts with the sqlite db
+    
 
     """
     ##############################################################
@@ -487,6 +489,20 @@ def aggregate_post():
                         VALUES('{row[0]}', '{emis_comm}', '{row[1]}', '{row[2]}', {row[3]}, '{row[4]}', {emis_act}, '{emis_units}', '{note}',
                         '{config.params['epa_reference']}', {config.params['epa_year']}, 2, 1, 1, 1, 1, 3)""")
     
+
+    conn.commit()
+    conn.close()
+
+
+
+# For non-regional post-subsector aggregation
+def aggregate_post():
+
+    # Connect to the new database file
+    conn = sqlite3.connect(config.database_file)
+    curs = conn.cursor() # Cursor object interacts with the sqlite db
+    
+
     """
     ##############################################################
         Existing time periods
@@ -584,7 +600,8 @@ def cleanup():
     tr_tables = [table for table in t_tables if 'regions' in [description[0] for description in curs.execute(f"SELECT * FROM '{table}'").description]]
 
     for region in config.model_regions:
-        for tech in config.nrcan_techs.index:
+        for tech, row in config.nrcan_techs.iterrows():
+            if row['end_use'] == 'appliances other': continue # Does not have capacity
 
             exs_cap = sum([fetch[0] for fetch in curs.execute(f"SELECT exist_cap FROM ExistingCapacity WHERE tech == '{tech}' and regions == '{region}'").fetchall()])
             if exs_cap == 0:
@@ -594,6 +611,23 @@ def cleanup():
                     curs.execute(f"DELETE FROM '{table}' WHERE tech == '{tech}' AND regions == '{region}'")
 
                 print(f"Cleaned up existing tech with no existing capacity: {region}, {tech}")
+
+    
+
+    """
+    ##############################################################
+        End uses with no (one) choice
+    ##############################################################
+    """
+
+    # For each region
+        # For each end use
+            # Check end use technologies
+            # If only one that isn't -EXS then no choice
+            # Determine average efficiency by period from ACFs, existing capacities/lifetimes, and efficiencies
+            # slate end use technologies for removal
+            # Add single new dummy technology with average efficiency by period (new vintage for each period?)
+            # D_R_FRZ -> R_FRZ
 
 
     conn.commit()

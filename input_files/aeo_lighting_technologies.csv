@@ -1,0 +1,8 @@
+﻿tech,include,code,description
+R_LGT_INC,TRUE,INC,new incandescent bulb (60W)
+R_LGT_HAL,TRUE,HAL,new halogen bulb (60W inc-equiv)
+R_LGT_CFL-TYP,TRUE,CFL,new compact fluorescent bulb (60W inc-equiv) typical efficiency
+R_LGT_CFL-HEF,FALSE,CFL-HEF,new compact fluorescent bulb (60W inc-equiv) high efficiency
+R_LGT_LED-TYP,TRUE,LED,new led bulb (60W inc-equiv) typical efficiency
+R_LGT_LED-HEF,FALSE,LED-HEF,new led bulb (60W inc-equiv) high efficiency
+R_LGT_T12,TRUE,T12,new linear fluorescent lamp (T12)

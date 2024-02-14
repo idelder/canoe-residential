@@ -231,6 +231,18 @@ def aggregate(region):
                             VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf}, '{max_note}',
                             '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(period, base_year)}, 1, 1)""")
 
+    conn.commit()
+    conn.close()
+
+    if config.params['include_furnace_fans']: aggregate_furnace_fans(region)
+
+
+
+def aggregate_furnace_fans(region):
+
+    # Connect to the new database file
+    conn = sqlite3.connect(config.database_file)
+    curs = conn.cursor() # Cursor object interacts with the sqlite db
 
 
     """
@@ -244,12 +256,13 @@ def aggregate(region):
     split = eff * frn_fan['output_split'] / (1 + eff * frn_fan['output_split']) # calculating TOS to achieve correct electricity consumption
     tos_note = f"(PJ/PJ) Furnace fan electricity consumption. x/(1+x) where x is assumed 6 kWh into fan / MMBtu out (nyserda, 2013)."
 
-    # Get technologies that need furnace fan consumption
+    # Get technologies that need furnace fan consumption (fan tag in AEO data and space heating end use)
     fan_classes = config.aeo_res_class.loc[config.aeo_res_class['Furnace Fan Flag']==1].index.unique()
-    fan_techs = [*config.nrcan_techs.loc[config.nrcan_techs['aeo_class'].isin(fan_classes)].index.values, *config.aeo_techs.loc[config.aeo_techs['aeo_class'].isin(fan_classes)].index.values]
+    fan_techs = [*config.nrcan_techs.loc[(config.nrcan_techs['aeo_class'].isin(fan_classes)) & (config.nrcan_techs['end_use'] == 'space heating')].index.values,
+                 *config.aeo_techs.loc[(config.aeo_techs['aeo_class'].isin(fan_classes)) & (config.aeo_techs['end_uses'].str.contains('space heating'))].index.values]
 
     for tech in fan_techs:
-
+        
         vints = config.tech_vints[tech]
 
         # Add a dummy process to convert input fan electricity to worthless dummy commodity
