@@ -1,4 +1,5 @@
 __pycache__/
-download_cache/
-residential.sqlite
+data_cache/
 deprecated/
+residential.sqlite
+residential.xlsx

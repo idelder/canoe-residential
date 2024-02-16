@@ -1,6 +1,6 @@
-# Configuration for residential sector
+# Configuration for aggregation of residential sector
 
-period_step: 5
+period_step: 5 # Number of years between model periods
 
 # Must be in ascending order along with all data in tables!
 model_periods:
@@ -11,9 +11,10 @@ model_periods:
   - 2045
   - 2050
   
-base_year: 2020
+base_year: 2020 # Default year to pull data from
 
 global_discount_rate: 0.05
+
 dsd_tolerance: 0.02 # Set DSD to zero if less than this times hourly average (i.e. dsd(h) = 0 if dsd(h) < tol * mean(dsd))
 
 sqlite_schema: "canoe_schema.sql"
@@ -21,12 +22,14 @@ sqlite_database: "residential.sqlite"
 excel_template: "Template spreadsheet (make a copy).xlsx"
 excel_output: "residential.xlsx"
 
-show_plots: false
-simplify_model: true # Reduces to simple model. Current behaviour wipes DSDs so might as well skip those
-include_dsd: false # Aggregating DSDs is slow so might want to skip sometimes
+force_download: false # Forces downloading data again instead of using cached versions
+show_plots: true
+simplify_model: false # Reduces to simple model. Current behaviour wipes DSDs so might as well skip those
+include_dsd: true # Aggregating DSDs is slow so might want to skip sometimes
 include_emissions: false
 include_furnace_fans: false # Whether to include electricity consumption of fans in space heating
 clone_to_xlsx: true
+force_generate_weather_maps: false # Force regeneration of weather maps
 
 nrcan_url: "https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/data_e/downloads/comprehensive/Excel/<y>/res_<r>_e_<t>.xls"
 nrcan_reference: 'Natural Resources Canada, (2020). Comprehensive Energy Use Database. https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/menus/trends/comprehensive_tables/list.cfm'
@@ -71,7 +74,6 @@ furnace_fans:
 
 appliances:
   annual_capacity_factor: 0.05 # Arbitrary capacity factor for appliances to ensure peak demand is met
-  other_tech: 'R_APP_OTH'
 
 lighting: 
   annual_capacity_factor: 0.0667 # 1.6/24

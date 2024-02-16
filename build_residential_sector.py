@@ -58,7 +58,7 @@ if config.params['show_plots']: pp.show()
 ##############################################################
 """
 
-def prep_high_resolution():
+def prep_high_res_testing():
     
     fuel_costs = {
         "NG": 8.847,

@@ -16,7 +16,7 @@ class config:
     # File locations
     _this_dir = os.path.realpath(os.path.dirname(__file__)) + "/"
     input_files = _this_dir + 'input_files/'
-    cache_dir = _this_dir + "download_cache/"
+    cache_dir = _this_dir + "data_cache/"
 
     tech_vints = {}
     lifetimes = {}
@@ -27,8 +27,8 @@ class config:
     def __new__(cls, *args, **kwargs):
 
         if isinstance(cls._instance, cls): return cls._instance
-
         cls._instance = super(config, cls).__new__(cls, *args, **kwargs)
+
         cls._get_params(cls._instance)
         cls._get_files(cls._instance)
         cls._get_aeo_data(cls._instance)
@@ -41,7 +41,7 @@ class config:
 
     def _get_params(cls):
         
-        stream = open(config.input_files + "res_config.yaml", 'r')
+        stream = open(config.input_files + "params.yaml", 'r')
         config.params = dict(yaml.load(stream, Loader=yaml.Loader))
 
         config.model_periods = list(config.params['model_periods'])

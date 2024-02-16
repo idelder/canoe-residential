@@ -226,7 +226,7 @@ def aggregate(region):
                         VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf}, '{acf_note}',
                         '{acf_ref}', {acf_data_year}, 1, 1, 1, {dq_time}, 1, 1)""")
 
-        # LEDs didn't come around that long ago so cap the oldest vintage
+        # Some lighting techs didn't come around that long ago so restrict the oldest vintage
         if not pd.isna(row['oldest_vint']): vints = [vint for vint in vints if vint >= row['oldest_vint']]
         
         # Divide between feasible vintages
