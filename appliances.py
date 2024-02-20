@@ -103,7 +103,7 @@ def aggregate(region):
             curs.execute(f"""REPLACE INTO
                         ExistingCapacity(regions, tech, vintage, exist_cap, exist_cap_units, exist_cap_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{tech}', {vint}, {exs_cap / len(vints)}, '(Munit)', '{note}',
+                        VALUES('{region}', '{tech}', {vint}, {exs_cap / len(vints)}, '({config.end_use_demands.loc[row['end_use'], 'cap_unit']})', '{note}',
                         '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(config.model_periods[0], base_year)}, 1, 1)""")
         
 
@@ -126,7 +126,7 @@ def aggregate(region):
             curs.execute(f"""REPLACE INTO
                     Demand(regions, periods, demand_comm, demand, demand_units, demand_notes,
                     reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                    VALUES('{region}', {period}, '{end_use_demands.loc[end_use, 'comm']}', {dem}, '(Munity)', '{note}',
+                    VALUES('{region}', {period}, '{config.end_use_demands.loc[row['end_use'], 'comm']}', {dem}, '({config.end_use_demands.loc[row['end_use'], 'dem_unit']})', '{note}',
                     '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(period, base_year)}, 1, 1)""")
         
 
@@ -169,7 +169,6 @@ def aggregate(region):
 
     ## Cooking ranges and clothes dryers
     # A pain to deal with because both natural gas and electricity variants
-    note = "(Munity/PJ) From generic unit energy consumpion (UEC) of existing stock from Energy Use Data Handbook as provincial data cannot be disaggregated by both end use and fuel."
     reference = config.params['handbook_reference']
 
     # Generic unit energy consumption of nrcan technologies
@@ -193,6 +192,10 @@ def aggregate(region):
             row = nrcan_techs.loc[techs[f]] # configuration data
             vints = config.tech_vints[techs[f]]
 
+            fuel = fuel_commodities.loc[fuels[f]]
+            note = (f"({config.end_use_demands.loc[row['end_use'], 'dem_unit']}/{fuel['unit']}) From generic unit energy consumpion (UEC) of existing stock"
+                    " from Energy Use Data Handbook as provincial data cannot be disaggregated by both end use and fuel.")
+
             # Efficiency in Munity/PJ times acf because assumed actual activity is stock times acf
             eff_exs = 1/hb_uecs[f].loc[row['nrcan_stocks'], base_year] * acf
 
@@ -203,7 +206,7 @@ def aggregate(region):
                 curs.execute(f"""REPLACE INTO
                         Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{fuel_commodities.loc[fuels[f], 'comm']}', '{techs[f]}', {vint}, '{end_use_demands.loc[end_use, 'comm']}', {eff_exs}, '{note}',
+                        VALUES('{region}', '{fuel['comm']}', '{techs[f]}', {vint}, '{config.end_use_demands.loc[row['end_use'], 'comm']}', {eff_exs}, '{note}',
                         '{reference}', {base_year}, 3, 2, 1, 1, 3, 1)""")
             
 

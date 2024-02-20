@@ -24,6 +24,7 @@ nrcan_techs = config.nrcan_techs
 aeo_techs = config.aeo_techs
 aeo_res_class = config.aeo_res_class
 aeo_res_equip = config.aeo_res_equip
+water_heating = config.end_use_demands.loc['water heating']
 
 
 
@@ -41,17 +42,15 @@ def aggregate(region):
     ##############################################################
     """
 
-    out_comm = c2a = config.end_use_demands.loc['water heating', 'comm']
     stock_effs = dict() # track efficiencies by nrcan stock
 
     for tech, row in config.nrcan_techs.iterrows():
         if row['end_use'] != 'water heating': continue
 
-        # TAKE FROM AEO CLASS
-        note = "(PJ/PJ)"
-
         # Input commodity
-        in_comm = fuel_commodities.loc[row.loc['fuels'], 'comm']
+        in_comm = fuel_commodities.loc[row.loc['fuels']]
+
+        note = f"({water_heating['dem_unit']}/{in_comm['unit']})"
 
         # Taking efficiency from base efficiency of AEO class - not great but it'll do
         eff = aeo_res_class.loc[row['aeo_class'], 'Base Efficiency']
@@ -64,7 +63,7 @@ def aggregate(region):
             curs.execute(f"""REPLACE INTO
                 Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
                 reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                VALUES('{region}', '{in_comm}', '{tech}', {vint}, '{out_comm}', {eff}, '{note}',
+                VALUES('{region}', '{in_comm['comm']}', '{tech}', {vint}, '{water_heating['comm']}', {eff}, '{note}',
                 '{aeo_ref}', {aeo_year}, 3, 1, 1, 1, 3, 3)""")
             
 
@@ -96,7 +95,7 @@ def aggregate(region):
         curs.execute(f"""REPLACE INTO
                     Demand(regions, periods, demand_comm, demand, demand_units, demand_notes,
                     reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                    VALUES('{region}', {period}, '{out_comm}', {float(dem.loc[period])}, '(PJ)', '{note}',
+                    VALUES('{region}', {period}, '{water_heating['comm']}', {float(dem.loc[period])}, '({water_heating['dem_unit']})', '{note}',
                     '{reference}', {base_year}, 2, 1, 1, {utils.dq_time(period, base_year)}, 1, 3)""")
 
     
@@ -155,12 +154,12 @@ def aggregate(region):
             curs.execute(f"""REPLACE INTO
                             MinAnnualCapacityFactor(regions, periods, tech, output_comm, min_acf, min_acf_notes,
                             reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                            VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf*0.99}, '{min_note}',
+                            VALUES('{region}', {period}, '{tech}', '{water_heating['comm']}', {acf*0.99}, '{min_note}',
                             '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(period, base_year)}, 1, 1)""")
             curs.execute(f"""REPLACE INTO
                             MaxAnnualCapacityFactor(regions, periods, tech, output_comm, max_acf, max_acf_notes,
                             reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                            VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf}, '{max_note}',
+                            VALUES('{region}', {period}, '{tech}', '{water_heating['comm']}', {acf}, '{max_note}',
                             '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(period, base_year)}, 1, 1)""")
 
 

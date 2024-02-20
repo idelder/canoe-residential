@@ -18,6 +18,7 @@ statcan_year = config.params['statcan_data_year']
 statcan_ref = config.params['statcan_reference']
 fuel_commodities = config.fuel_commodities
 nrcan_techs = config.nrcan_techs
+space_cooling = config.end_use_demands.loc['space cooling']
 
 
 def aggregate(region):
@@ -52,14 +53,12 @@ def aggregate(region):
     pop = config.populations[region]
     dem = activity[base_year].sum() * pop / pop.loc[base_year]
 
-    out_comm = config.end_use_demands.loc['space cooling', 'comm']
-
     # Write to database
     for period in config.model_periods:
         curs.execute(f"""REPLACE INTO
                     Demand(regions, periods, demand_comm, demand, demand_units, demand_notes,
                     reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                    VALUES('{region}', {period}, '{out_comm}', {float(dem.loc[period])}, '(PJ)', '{note}',
+                    VALUES('{region}', {period}, '{space_cooling['comm']}', {float(dem.loc[period])}, '({space_cooling['dem_unit']})', '{note}',
                     '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(period, base_year)}, 1, 1)""")
 
 
@@ -73,13 +72,13 @@ def aggregate(region):
     for tech, row in config.nrcan_techs.iterrows():
         if row['end_use'] != 'space cooling': continue
 
-        note = "(PJ/PJ) new build efficiency per vintage"
+        # Input commodity
+        in_comm = fuel_commodities.loc[row.loc['fuels']]
+
+        note = f"({space_cooling['dem_unit']}/{in_comm['unit']}) new build efficiency per vintage"
 
         # Get the NRCan nomenclature of the tech
         nrcan_stock = row['nrcan_stocks']
-
-        # Input commodity
-        in_comm = fuel_commodities.loc[row.loc['fuels'], 'comm']
 
         # Write single fuel efficiencies to database
         for vint in config.tech_vints[tech]:
@@ -91,7 +90,7 @@ def aggregate(region):
             curs.execute(f"""REPLACE INTO
                 Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
                 reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                VALUES('{region}', '{in_comm}', '{tech}', {vint}, '{out_comm}', {eff}, '{note}',
+                VALUES('{region}', '{in_comm['comm']}', '{tech}', {vint}, '{space_cooling['comm']}', {eff}, '{note}',
                 '{nrcan_ref}', {base_year}, 1, 1, 1, 1, 1, 1)""")
 
     
@@ -130,7 +129,7 @@ def aggregate(region):
             curs.execute(f"""REPLACE INTO
                         ExistingCapacity(regions, tech, vintage, exist_cap, exist_cap_units, exist_cap_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{tech}', {vint}, {existing_cap / len(vints)}, '(Munit)', '{note}',
+                        VALUES('{region}', '{tech}', {vint}, {existing_cap / len(vints)}, '({space_cooling['cap_unit']})', '{note}',
                         '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(config.model_periods[0], base_year)}, 1, 1)""")
 
 
@@ -151,12 +150,12 @@ def aggregate(region):
             curs.execute(f"""REPLACE INTO
                             MinAnnualCapacityFactor(regions, periods, tech, output_comm, min_acf, min_acf_notes,
                             reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                            VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf*0.99}, '{min_note}',
+                            VALUES('{region}', {period}, '{tech}', '{space_cooling['comm']}', {acf*0.99}, '{min_note}',
                             '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(period, base_year)}, 1, 1)""")
             curs.execute(f"""REPLACE INTO
                             MaxAnnualCapacityFactor(regions, periods, tech, output_comm, max_acf, max_acf_notes,
                             reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                            VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf}, '{max_note}',
+                            VALUES('{region}', {period}, '{tech}', '{space_cooling['comm']}', {acf}, '{max_note}',
                             '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(period, base_year)}, 1, 1)""")
 
 

@@ -45,7 +45,7 @@ statcan_data_year: 2022
 
 epa_reference: "US EPA. (2023, March). GHG Emission Factors Hub [Overviews and Factsheets]. https://www.epa.gov/climateleadership/ghg-emission-factors-hub"
 epa_year: 2023
-emissions_commodity: 'CO2eq'
+emission_commodity: 'CO2eq'
 emission_activity_units: 'ktCO2eq/PJ'
 
 conversion_factors:

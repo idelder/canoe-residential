@@ -25,8 +25,8 @@ curr_year = config.params['aeo_currency_year']
 conv = config.params['conversion_factors']['lighting']
 
 # Some common variables
-in_comm = config.fuel_commodities.loc[config.params['lighting']['input_comm'], 'comm']
-out_comm = config.end_use_demands.loc['lighting', 'comm']
+in_comm = config.fuel_commodities.loc['electricity']
+lighting = config.end_use_demands.loc['lighting']
 acf = config.params['lighting']['annual_capacity_factor']
 
 
@@ -103,12 +103,12 @@ def aggregate(region):
             curs.execute(f"""REPLACE INTO
                             MinAnnualCapacityFactor(regions, periods, tech, output_comm, min_acf, min_acf_notes,
                             reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                            VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf*0.99}, '{min_note}',
+                            VALUES('{region}', {period}, '{tech}', '{lighting['comm']}', {acf*0.99}, '{min_note}',
                             '{acf_ref}', {acf_data_year}, 1, 1, 1, {dq_time}, 1, 1)""")
             curs.execute(f"""REPLACE INTO
                             MaxAnnualCapacityFactor(regions, periods, tech, output_comm, max_acf, max_acf_notes,
                             reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                            VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf}, '{acf_note}',
+                            VALUES('{region}', {period}, '{tech}', '{lighting['comm']}', {acf}, '{acf_note}',
                             '{acf_ref}', {acf_data_year}, 1, 1, 1, {dq_time}, 1, 1)""")
 
 
@@ -155,13 +155,13 @@ def aggregate(region):
         aeo_equivs[tech] = aeo_techs.loc[aeo_techs['code'] == row['code']].index.values[0]
         for metric in data.columns: exs_techs.loc[tech, metric] = data[metric].values[0]
     
-    # Unit conversion of efficacy lm/W to Glmy/PJ
-    exs_techs['efficacy'] *= conv['efficacy']
-    exs_techs['cost_maintain'] *= conv['cost']
+    # Unit conversion
+    exs_techs['efficacy'] *= conv['efficacy'] # efficacy lm/W to Glmy/PJ
+    exs_techs['cost_maintain'] *= conv['cost'] # $/klmy to $/Glmy
     exs_techs['lamp_life'] = round(exs_techs['lamp_life'] * conv['lifetime'] / acf)
 
     # Finally, calculate the average efficacy of existing lighting stock, indexed to shares of single-family vs multi-family housing
-    exs_eff = 0 # lm/W
+    exs_eff = 0 # Glmy/PJ
     for tech_exs, row_exs in reg_shares.iterrows():
         reg_shares.loc[tech_exs, 'share_tot'] = np.dot(row_exs[['share_sf','share_mf']].values, t14.values)
         exs_eff += exs_techs.loc[tech_exs, 'efficacy'] * reg_shares.loc[tech_exs, 'share_tot']
@@ -178,7 +178,7 @@ def aggregate(region):
         curs.execute(f"""REPLACE INTO
                     Demand(regions, periods, demand_comm, demand, demand_units, demand_notes,
                     reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                    VALUES('{region}', {period}, '{config.end_use_demands.loc['lighting', 'comm']}', {float(dem.loc[period])}, '(Glmy)', '{note}',
+                    VALUES('{region}', {period}, '{lighting['comm']}', {float(dem.loc[period])}, '({lighting['dem_unit']})', '{note}',
                     '{reference}', {base_year}, 3, 3, 1, {utils.dq_time(period, base_year)}, 3, 1)""")
         
 
@@ -218,12 +218,12 @@ def aggregate(region):
             curs.execute(f"""REPLACE INTO
                         MinAnnualCapacityFactor(regions, periods, tech, output_comm, min_acf, min_acf_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf*0.99}, '{min_note}',
+                        VALUES('{region}', {period}, '{tech}', '{lighting['comm']}', {acf*0.99}, '{min_note}',
                         '{acf_ref}', {acf_data_year}, 1, 1, 1, {dq_time}, 1, 1)""")
             curs.execute(f"""REPLACE INTO
                         MaxAnnualCapacityFactor(regions, periods, tech, output_comm, max_acf, max_acf_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf}, '{acf_note}',
+                        VALUES('{region}', {period}, '{tech}', '{lighting['comm']}', {acf}, '{acf_note}',
                         '{acf_ref}', {acf_data_year}, 1, 1, 1, {dq_time}, 1, 1)""")
 
         # Some lighting techs didn't come around that long ago so restrict the oldest vintage
@@ -245,13 +245,13 @@ def aggregate(region):
             curs.execute(f"""REPLACE INTO
                         ExistingCapacity(regions, tech, vintage, exist_cap, exist_cap_units, exist_cap_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{tech}', {vint}, {exs_cap}, '(Glm)', '{note}',
+                        VALUES('{region}', '{tech}', {vint}, {exs_cap}, '({lighting['cap_unit']})', '{note}',
                         '{reference}', {2018}, 4, 2, 1, {utils.dq_time(config.model_periods[0], 2018)}, 3, 1)""")
             
             curs.execute(f"""REPLACE INTO
                         Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{in_comm}', '{tech}', {vint}, '{out_comm}', {row['efficacy']}, '(Glmy/PJ) {aeo_note}',
+                        VALUES('{region}', '{in_comm['comm']}', '{tech}', {vint}, '{lighting['comm']}', {row['efficacy']}, '({lighting['dem_unit']}/{in_comm['unit']}) {aeo_note}',
                         '{aeo_ref}', {2018}, 1, 1, 1, 1, 3, 1)""")
             
             for period in config.model_periods:
@@ -299,7 +299,7 @@ def aggregate(region):
             curs.execute(f"""REPLACE INTO
                         Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{in_comm}', '{tech}', {vint}, '{out_comm}', {efficacy}, '(Glmy/PJ)',
+                        VALUES('{region}', '{in_comm['comm']}', '{tech}', {vint}, '{lighting['comm']}', {efficacy}, '({lighting['dem_unit']}/{in_comm['unit']})',
                         '{aeo_ref}', {2018}, 1, 1, 1, 1, 3, 1)""")
             
             ## CostInvest

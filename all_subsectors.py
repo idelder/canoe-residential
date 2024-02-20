@@ -96,7 +96,7 @@ def aggregate():
     # CO2-equivalent emission commodity
     curs.execute(f"""REPLACE INTO
                 commodities(comm_name, flag, comm_desc)
-                VALUES('{config.params['emissions_commodity']}', 'e', '(ktCO2eq) CO2-equivalent emissions')""")
+                VALUES('{config.params['emission_commodity']}', 'e', '(ktCO2eq) CO2-equivalent emissions')""")
 
 
 
@@ -321,7 +321,7 @@ def aggregate_region(region):
         end_use = row['end_use']
 
         c2a = end_use_demands.loc[end_use, 'c2a']
-        unit = end_use_demands.loc[end_use, 'c2a_unit']
+        unit = f"{end_use_demands.loc[end_use, 'dem_unit']}/{end_use_demands.loc[end_use, 'cap_unit']}.y" # ACT/CAP.y
         curs.execute(f"""REPLACE INTO
                         CapacityToActivity(regions, tech, c2a, c2a_notes, dq_est)
                         VALUES('{region}', '{tech}', {c2a}, '({unit}) {note}', 0)""")
@@ -331,7 +331,7 @@ def aggregate_region(region):
         end_uses = row['end_uses'].split('+')
 
         c2a = end_use_demands.loc[end_uses[0], 'c2a'] # Must be the same for all end uses anyway
-        unit = end_use_demands.loc[end_uses[0], 'c2a_unit']
+        unit = f"{end_use_demands.loc[end_uses[0], 'dem_unit']}/{end_use_demands.loc[end_uses[0], 'cap_unit']}.y" # ACT/CAP.y
         curs.execute(f"""REPLACE INTO
                         CapacityToActivity(regions, tech, c2a, c2a_notes, dq_est)
                         VALUES('{region}', '{tech}', {c2a}, '({unit}) {note}', 0)""")
@@ -598,7 +598,7 @@ def aggregate_emissions():
     ##############################################################
     """
 
-    emis_comm = config.params['emissions_commodity']
+    emis_comm = config.params['emission_commodity']
     emis_units = config.params['emission_activity_units']
 
     # Get emissions factors for fuels in ktCO2eq/PJ_in
