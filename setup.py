@@ -120,12 +120,12 @@ class config:
         
 
     # Have to put this here or it's awkward circular imports with utils
-    def _get_statcan_table(table, save_as=None, use_cache=True, **kwargs):
+    def _get_statcan_table(table, save_as=None, **kwargs):
         
         if save_as == None: save_as = f"statcan_{table}.csv"
         if os.path.splitext(save_as)[1] != ".csv": save_as += ".csv"
 
-        if use_cache and os.path.isfile(config.cache_dir + save_as):
+        if not config.params['force_download']  and os.path.isfile(config.cache_dir + save_as):
 
             try:
 

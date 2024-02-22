@@ -25,8 +25,6 @@ nrcan_ref = config.params['nrcan_reference']
 statcan_ref = config.params['statcan_reference']
 conversion_factors = config.params['conversion_factors']
 
-weather_maps = dict() # 2D matrix maps from us data to canadian data
-
 
 
 # For non-regional aggregation

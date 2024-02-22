@@ -17,41 +17,53 @@ import model_reduction
 from setup import config
 from matplotlib import pyplot as pp
 
-# Check if database exists or needs to be built
-build_db = not os.path.isfile(config.database_file)
 
-# Connect to the new database file
-conn = sqlite3.connect(config.database_file)
-curs = conn.cursor() # Cursor object interacts with the sqlite db
 
-# Instantiate the database if it doesn't exist
-if build_db: curs.executescript(open(config.schema_file, 'r').read())
+def build_database():
 
-conn.commit()
-conn.close()
+    # Check if database exists or needs to be built
+    build_db = not os.path.isfile(config.database_file)
 
-## Aggregate subsectors
-all_subsectors.aggregate()
+    # Connect to the new database file
+    conn = sqlite3.connect(config.database_file)
+    curs = conn.cursor() # Cursor object interacts with the sqlite db
 
-for region in config.model_regions:
-    all_subsectors.aggregate_region(region)
-    space_heating.aggregate(region)
-    space_cooling.aggregate(region)
-    water_heating.aggregate(region)
-    lighting.aggregate(region)
-    appliances.aggregate(region)
-    all_subsectors.aggregate_region_post(region)
+    # Instantiate the database if it doesn't exist
+    if build_db: curs.executescript(open(config.schema_file, 'r').read())
 
-if config.params['include_dsd']: all_subsectors.aggregate_dsd()
-if config.params['include_emissions']: all_subsectors.aggregate_emissions()
-if config.params['simplify_model']: model_reduction.simplify_model()
+    conn.commit()
+    conn.close()
 
-all_subsectors.aggregate_post()
-all_subsectors.cleanup()
+    ## Aggregate subsectors
+    all_subsectors.aggregate()
 
-# Show any plots that have been made
-if config.params['clone_to_xlsx']: utils.DatabaseConverter().clone_sqlite_to_excel(config.database_file, config.excel_target_file, excel_template_file=config.excel_template_file)
-if config.params['show_plots']: pp.show()
+    for region in config.model_regions:
+        all_subsectors.aggregate_region(region)
+        space_heating.aggregate(region)
+        space_cooling.aggregate(region)
+        water_heating.aggregate(region)
+        lighting.aggregate(region)
+        appliances.aggregate(region)
+        all_subsectors.aggregate_region_post(region)
+
+    if config.params['include_dsd']: all_subsectors.aggregate_dsd()
+    if config.params['include_emissions']: all_subsectors.aggregate_emissions()
+    if config.params['simplify_model']: model_reduction.simplify_model()
+
+    all_subsectors.aggregate_post()
+    all_subsectors.cleanup()
+
+    # Show any plots that have been made
+    if config.params['clone_to_xlsx']: utils.DatabaseConverter().clone_sqlite_to_excel(config.database_file, config.excel_target_file, excel_template_file=config.excel_template_file)
+    if config.params['show_plots']: pp.show()
+
+
+
+if __name__ == "__main__":
+    
+    build_database()
+
+
 
 """
 ##############################################################
