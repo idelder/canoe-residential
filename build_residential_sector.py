@@ -12,12 +12,13 @@ import water_heating
 import lighting
 import appliances
 import utils
+import shutil
 import model_reduction
 from setup import config
 from matplotlib import pyplot as pp
 
 # Check if database exists or needs to be built
-build_db = not os.path.exists(config.database_file)
+build_db = not os.path.isfile(config.database_file)
 
 # Connect to the new database file
 conn = sqlite3.connect(config.database_file)

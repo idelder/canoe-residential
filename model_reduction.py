@@ -53,7 +53,7 @@ def simplify_model():
                     
     curs.execute(f"""UPDATE CostVariable
                 SET cost_variable = data_cost_variable * 1.05530864968912, 
-                cost_variable_units = 'MCAD2020'""")
+                cost_variable_units = 'MCAD2020/PJ'""")
     
     # Only one time period per year: S01, D01
     curs.execute(f"DELETE FROM time_season")

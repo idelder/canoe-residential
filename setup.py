@@ -49,7 +49,7 @@ class config:
         config.aeo_techs = config.aeo_techs.loc[config.aeo_techs['include']] # drop techs that aren't to be included
         config.nrcan_techs = pd.read_csv(config.input_files + 'nrcan_technologies.csv', index_col=0)
         config.regions = pd.read_csv(config.input_files + 'regions.csv', index_col=0)
-        config.fuel_commodities = pd.read_csv(config.input_files + 'fuels.csv', index_col=0)
+        config.fuel_commodities = pd.read_csv(config.input_files + 'fuel_commodities.csv', index_col=0)
         config.end_use_demands = pd.read_csv(config.input_files + 'end_use_demands.csv', index_col=0)
         config.time = pd.read_csv(config.input_files + 'time.csv', index_col=0)
 

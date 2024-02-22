@@ -14,11 +14,3 @@ import sqlite3
 import numpy as np
 from matplotlib import pyplot as pp
 from datetime import datetime
-
-print(config.regions.loc['ON', 'ca_station'])
-
-a = np.ones([3,3])
-print(a)
-np.savetxt('a.csv', a, delimiter=',')
-np.loadtxt('a.csv', dtype=float, delimiter=',')
-print(a)

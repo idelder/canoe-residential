@@ -24,4 +24,4 @@ R_APP_FREZ-EXS,freezer,,appliances freezers,existing freezers,FREZ,electricity
 R_APP_REFR-EXS,refrigerator,,appliances refrigerators,existing refrigerators,REFR,electricity
 R_APP_COOK_NG-EXS,range,,appliances cooking ranges,existing natural gas cooking ranges,NG_STV,natural gas
 R_APP_DRY_NG-EXS,clothes dryer,,appliances clothes dryers,existing natural gas clothes dryers,NG_DRY,natural gas
-R_APP_OTH,other appliances,,appliances other,existing other electrical appliances and devices,,electricity
+R_APP_OTH,other appliances,,appliances other,other electrical appliances and devices,,electricity

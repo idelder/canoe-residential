@@ -22,13 +22,14 @@ sqlite_database: "residential.sqlite"
 excel_template: "Template spreadsheet (make a copy).xlsx"
 excel_output: "residential.xlsx"
 
+force_clear_database: true # Forces clearing of database to start fresh
 force_download: false # Forces downloading data again instead of using cached versions
 show_plots: true
 simplify_model: false # Reduces to simple model. Current behaviour wipes DSDs so might as well skip those
 include_dsd: true # Aggregating DSDs is slow so might want to skip sometimes
-include_emissions: false
-include_furnace_fans: false # Whether to include electricity consumption of fans in space heating
-clone_to_xlsx: true
+include_emissions: true
+include_furnace_fans: true # Whether to include electricity consumption of fans in space heating
+clone_to_xlsx: false
 force_generate_weather_maps: false # Force regeneration of weather maps
 
 nrcan_url: "https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/data_e/downloads/comprehensive/Excel/<y>/res_<r>_e_<t>.xls"

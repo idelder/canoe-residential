@@ -158,7 +158,7 @@ def aggregate(region):
             curs.execute(f"""REPLACE INTO
                 Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
                 reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                VALUES('{region}', '{in_comm}', '{tech}', {vint}, '{space_heating['comm']}', {eff}, '{note}',
+                VALUES('{region}', '{in_comm['comm']}', '{tech}', {vint}, '{space_heating['comm']}', {eff}, '{note}',
                 '{nrcan_ref}', {base_year}, 1, 1, 1, 1, 1, 1)""")
     
 

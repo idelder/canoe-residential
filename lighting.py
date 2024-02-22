@@ -136,8 +136,8 @@ def aggregate(region):
     reg_shares = exs_techs.rename({'on_share_sf':'share_sf', 'on_share_mf':'share_mf'}, axis=1)
     for tech, shares in reg_shares.iterrows():
         statcan_cat = exs_techs.loc[tech, 'statcan_category']
-        shares[['share_sf','share_mf']] *= usage_index.loc[statcan_cat]
-    for col in reg_shares[['share_sf','share_mf']].columns: reg_shares[col] /= reg_shares[col].sum() # reset to sum 100%
+        shares[['share_sf', 'share_mf']] *= usage_index.loc[statcan_cat]
+    for col in reg_shares[['share_sf', 'share_mf']].columns: reg_shares[col] /= reg_shares[col].sum() # reset to sum 100%
 
     # Table 14: Total Households by Building Type and Energy Source
     t14 = utils.get_compr_db(region, 14, 9, 12)[base_year] / 100 # % shares
@@ -189,7 +189,7 @@ def aggregate(region):
     ##############################################################
     """
 
-    # Existing capacity in Glmy at time of first model periods as indexed by population growth
+    # Existing capacity in Glmy at time of first model period when indexed to population growth
     exs_techs['existing_capacity'] = reg_shares['share_tot'] * float(dem.loc[config.model_periods[0]] / acf)
     
     # Distribute existing capacities over feasible past vintages
