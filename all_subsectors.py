@@ -461,6 +461,8 @@ def post_aggregate_region(region):
 # Doing all regions at once because some regions might share equivalent states and this process is slow
 def aggregate_dsd():
 
+    print("Aggregating DSDs...")
+
     conn = sqlite3.connect(config.database_file)
     curs = conn.cursor() # Cursor object interacts with the sqlite db
 
@@ -504,6 +506,8 @@ def aggregate_dsd():
     
     ## Multiply energy consumptions from resstock by province housing stocks, apply weather mapping, then normalise to DSD
     for region in config.model_regions:
+
+        print(f"Aggregating DSDs for {region}...")
 
         row = config.regions.loc[region]
         state = row['us_state']
