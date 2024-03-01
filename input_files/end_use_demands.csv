@@ -1,12 +1,12 @@
-﻿end_use,comm,c2a,cap_unit,dem_unit,use_weather_map
-space heating,D_R_SPH,2000,Munit,PJ,TRUE
-space cooling,D_R_SPC,2000,Munit,PJ,TRUE
-water heating,D_R_WAH,2000,Munit,PJ,TRUE
-lighting,D_R_LGT,1,Glm,Glmy,FALSE
-appliances refrigerators,D_R_APP_REF,1,Munit,Munity,TRUE
-appliances freezers,D_R_APP_FRZ,1,Munit,Munity,TRUE
-appliances dish washers,D_R_APP_DSH,1,Munit,Munity,FALSE
-appliances clothes washers,D_R_APP_CWSH,1,Munit,Munity,FALSE
-appliances clothes dryers,D_R_APP_CDRY,1,Munit,Munity,FALSE
-appliances cooking ranges,D_R_APP_COOK_RNG,1,Munit,Munity,FALSE
-appliances other,D_R_APP_OTH,1,Munit,Munity,FALSE
+﻿end_use,comm,description,c2a,cap_unit,dem_unit,use_weather_map
+space heating,d_r_sph,demand for residential space heating,2000,Munit,PJ,TRUE
+space cooling,d_r_spc,demand for residential space cooling,2000,Munit,PJ,TRUE
+water heating,d_r_wah,demand for residential water heating,2000,Munit,PJ,TRUE
+lighting,d_r_lgt,demand for residential lighting,1,Glm,Glmy,FALSE
+appliances refrigerators,d_r_app_ref,demand for residential refrigerators,1,Munit,Munity,TRUE
+appliances freezers,d_r_app_frz,demand for residential freezers,1,Munit,Munity,TRUE
+appliances dish washers,d_r_app_dsh,demand for residential dish washers,1,Munit,Munity,FALSE
+appliances clothes washers,d_r_app_cwsh,demand for residential clothes washers,1,Munit,Munity,FALSE
+appliances clothes dryers,d_r_app_cdry,demand for residential clothes dryers,1,Munit,Munity,FALSE
+appliances cooking ranges,d_r_app_cook_rng,demand for residential cooking ranges,1,Munit,Munity,FALSE
+appliances other,d_r_app_oth,demand for other residential electrical appliances,1,Munit,Munity,FALSE

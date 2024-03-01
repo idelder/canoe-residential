@@ -14,3 +14,5 @@ import sqlite3
 import numpy as np
 from matplotlib import pyplot as pp
 from datetime import datetime
+
+print(config.aeo_techs.reset_index().set_index(['end_uses','fuel']))

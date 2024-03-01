@@ -15,22 +15,30 @@ base_year: 2020 # Default year to pull data from
 
 global_discount_rate: 0.05
 
-dsd_tolerance: 0.02 # Set DSD to zero if less than this times hourly average (i.e. dsd(h) = 0 if dsd(h) < tol * mean(dsd))
+# Currency, data costs are exchanged and inflated in post processing
+final_currency: 'CAD'
+final_currency_year: 2020
+inflation_index: 'gdp_deflator' # gdp_deflator, general_cpi, energy_and_petroleum, industrial, construction_non_residential
+
+# Set DSD to zero if less than this times hourly average (i.e. dsd(h) = 0 if dsd(h) < tol * mean(dsd))
+# For computational reasons
+dsd_tolerance: 0.02
 
 sqlite_schema: "canoe_schema.sql"
 sqlite_database: "residential.sqlite"
 excel_template: "Template spreadsheet (make a copy).xlsx"
 excel_output: "residential.xlsx"
 
-force_clear_database: true # Forces clearing of database to start fresh
-force_download: false # Forces downloading data again instead of using cached versions
-show_plots: true
-simplify_model: false # Reduces to simple model. Current behaviour wipes DSDs so might as well skip those
-include_dsd: true # Aggregating DSDs is slow so might want to skip sometimes
-include_emissions: true
-include_furnace_fans: true # Whether to include electricity consumption of fans in space heating
-clone_to_xlsx: false
+force_wipe_database: true # Forces clearing of all data in database prior to aggregation
 force_generate_weather_maps: false # Force regeneration of weather maps
+force_download: false # Forces downloading data again instead of using cached versions
+show_plots: false
+include_dsd: false # Aggregating DSDs is slow so might want to skip sometimes
+include_imports: true # Aggregates dummy import technologies for fuels
+include_emissions: false
+include_furnace_fans: false # Whether to include electricity consumption of fans in space heating
+simplify_model: true # Reduces to simple model. Current behaviour wipes DSDs so might as well skip those
+clone_to_xlsx: true
 
 nrcan_url: "https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/data_e/downloads/comprehensive/Excel/<y>/res_<r>_e_<t>.xls"
 nrcan_reference: 'Natural Resources Canada, (2020). Comprehensive Energy Use Database. https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/menus/trends/comprehensive_tables/list.cfm'

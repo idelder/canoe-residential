@@ -6,7 +6,6 @@ Written by Ian David Elder for the CANOE model
 import utils
 import pandas as pd
 import os
-from scipy.special import gamma
 import numpy as np
 import sqlite3
 from setup import config
@@ -21,7 +20,15 @@ nrcan_techs = config.nrcan_techs
 space_cooling = config.end_use_demands.loc['space cooling']
 
 
-def aggregate(region):
+def aggregate():
+
+    for region in config.model_regions: aggregate_region(region)
+    
+    print(f"Space cooling data aggregated into {os.path.basename(config.database_file)}\n")
+
+
+
+def aggregate_region(region):
 
     # Connect to the new database file
     conn = sqlite3.connect(config.database_file)
@@ -162,3 +169,9 @@ def aggregate(region):
 
     conn.commit()
     conn.close()
+
+
+
+if __name__ == "__main__":
+    
+    aggregate()

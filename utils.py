@@ -213,7 +213,7 @@ class DatabaseConverter:
 
         return cls._instance
 
-    def clone_sqlite_to_excel(self, from_sqlite_file: str, to_excel_file: str, excel_template_file: str = None):
+    def clone_sqlite_to_excel(self, from_sqlite_file: str = config.database_file, to_excel_file: str = config.excel_target_file, excel_template_file: str = config.excel_template_file):
         
         print(f"\nCloning {os.path.basename(from_sqlite_file)} into target {os.path.basename(to_excel_file)}."\
               "\nThis may take a minute...")

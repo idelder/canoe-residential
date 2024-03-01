@@ -8,6 +8,12 @@ import utils
 import pandas as pd
 from scipy.special import gamma
 import sqlite3
+import os
+import space_heating
+import space_cooling
+import water_heating
+import lighting
+import appliances
 from matplotlib import pyplot as pp
 import weather_mapping
 
@@ -27,8 +33,28 @@ conversion_factors = config.params['conversion_factors']
 
 
 
-# For non-regional aggregation
 def aggregate():
+
+    pre_aggregate()
+    
+    ## Aggregate subsectors
+    space_heating.aggregate()
+    space_cooling.aggregate()
+    water_heating.aggregate()
+    lighting.aggregate()
+    appliances.aggregate()
+    
+    if config.params['include_dsd']: aggregate_dsd()
+    if config.params['include_emissions']: aggregate_emissions()
+    if config.params['include_imports']: aggregate_imports()
+
+    post_aggregate()
+    cleanup()
+
+
+
+# For non-regional aggregation
+def pre_aggregate():
 
     # Connect to the new database file
     conn = sqlite3.connect(config.database_file)
@@ -80,14 +106,14 @@ def aggregate():
     ##############################################################
     """
 
-    for fuel, row in fuel_commodities.iterrows():
+    for _fuel, row in fuel_commodities.iterrows():
         curs.execute(f"""REPLACE INTO
                     commodities(comm_name, flag, comm_desc)
-                    VALUES('{row['comm']}', 'p', '(PJ) residential {fuel}')""")
-    for desc, row in end_use_demands.iterrows():
+                    VALUES('{row['comm']}', 'p', '(PJ) {row['description']}')""")
+    for _end_use, row in end_use_demands.iterrows():
         curs.execute(f"""REPLACE INTO
                     commodities(comm_name, flag, comm_desc)
-                    VALUES('{row['comm']}', 'd', '(PJ) demand for residential {desc}')""")
+                    VALUES('{row['comm']}', 'd', '(PJ) {row['description']}')""")
         
     # CO2-equivalent emission commodity
     curs.execute(f"""REPLACE INTO
@@ -155,14 +181,17 @@ def aggregate():
         config.tech_vints[tech] = exs_vints
 
 
-
     conn.commit()
     conn.close()
+
+    for region in config.model_regions: pre_aggregate_region(region)
+
+    print(f"Pre aggregation complete.\n")
         
 
 
 # For region-specific aggregation
-def aggregate_region(region):
+def pre_aggregate_region(region):
 
     # Connect to the new database file
     conn = sqlite3.connect(config.database_file)
@@ -338,6 +367,97 @@ def aggregate_region(region):
 
 
 
+# For non-regional post-subsector aggregation
+def post_aggregate():
+
+    for region in config.model_regions: post_aggregate_region(region)
+
+    # Connect to the new database file
+    conn = sqlite3.connect(config.database_file)
+    curs = conn.cursor() # Cursor object interacts with the sqlite db
+    
+
+    """
+    ##############################################################
+        Existing time periods
+    ##############################################################
+    """
+
+    # Add all existing vintages to existing time periods
+    vints = set([fetch[0] for fetch in curs.execute(f"SELECT vintage FROM Efficiency").fetchall() if fetch[0] not in config.model_periods])
+
+    for vint in vints:
+        curs.execute(f"""INSERT OR IGNORE INTO
+                        time_periods(t_periods, flag)
+                        VALUES({vint}, 'e')""")
+
+
+    conn.commit()
+    conn.close()
+
+    for region in config.model_regions: post_aggregate_region(region)
+
+    print(f"Post aggregation complete.\n")
+
+
+
+# For regional post-subsector aggregation
+def post_aggregate_region(region):
+
+    # Connect to the new database file
+    conn = sqlite3.connect(config.database_file)
+    curs = conn.cursor() # Cursor object interacts with the sqlite db
+
+    """
+    ##############################################################
+        Annual Capacity Factor
+    ##############################################################
+    """
+
+    reference = f"{nrcan_ref}; {statcan_ref}"
+        
+    ## AEO future stock
+    # Copy from NRCan existing stock    
+    for tech, row in aeo_techs.iterrows():
+        if pd.isna(row['nrcan_equiv']):
+            print(f"{tech} has no specific NRCan equivalent and so will have no annual capacity factor.")
+            continue # no NRCan equivalent given
+        
+        end_uses = row['end_uses'].split('+')
+        nrcan_equivs = row['nrcan_equiv'].split('+')
+        nrcan_equivs = [nrcan_techs.loc[nrcan_techs['end_use'] + " - " + nrcan_techs['description'] == nrcan_equiv].index.values[0] for nrcan_equiv in nrcan_equivs]
+
+        for e in range(len(end_uses)):
+            
+            end_use = end_uses[e]
+            nrcan_tech = nrcan_equivs[e]
+
+            out_comm = end_use_demands.loc[end_use, 'comm']
+            
+            note = f"Assumed same as {nrcan_equivs[e]}"
+
+            # Get annual capacity factor from equivalent nrcan tech for which we have data
+            acf = curs.execute(f"SELECT max_acf FROM MaxAnnualCapacityFactor WHERE tech == '{nrcan_tech}' and regions == '{region}'").fetchone()[0]
+
+            for period in config.model_periods:
+                curs.execute(f"""REPLACE INTO
+                                MinAnnualCapacityFactor(regions, periods, tech, output_comm, min_acf, min_acf_notes,
+                                reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
+                                VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf*0.99}, '{note}',
+                                '{reference}', {base_year}, 2, 1, 1, {utils.dq_time(period, base_year)}, 3, 3)""")
+                curs.execute(f"""REPLACE INTO
+                                MaxAnnualCapacityFactor(regions, periods, tech, output_comm, max_acf, max_acf_notes,
+                                reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
+                                VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf}, '{note}',
+                                '{reference}', {base_year}, 2, 1, 1, {utils.dq_time(period, base_year)}, 3, 3)""")
+         
+
+
+    conn.commit()
+    conn.close()
+
+
+
 # Doing all regions at once because some regions might share equivalent states and this process is slow
 def aggregate_dsd():
 
@@ -446,6 +566,8 @@ def aggregate_dsd():
     conn.commit()
     conn.close()
 
+    print(f"Demand specific distribution data aggregated into {os.path.basename(config.database_file)}\n")
+
 
 
 def aggregate_emissions():
@@ -497,90 +619,43 @@ def aggregate_emissions():
     conn.commit()
     conn.close()
 
+    print(f"Emissions data aggregated into {os.path.basename(config.database_file)}\n")
 
 
-# For non-regional post-subsector aggregation
-def aggregate_post():
 
-    # Connect to the new database file
+def aggregate_imports():
+
     conn = sqlite3.connect(config.database_file)
-    curs = conn.cursor() # Cursor object interacts with the sqlite db
-    
+    curs = conn.cursor()
 
-    """
-    ##############################################################
-        Existing time periods
-    ##############################################################
-    """
+    # Get which fuel commodities are actually being used
+    used_comms = set([c[0] for c in curs.execute(f"SELECT input_comm FROM Efficiency").fetchall()])
 
-    # Add all existing vintages to existing time periods
-    vints = set([fetch[0] for fetch in curs.execute(f"SELECT vintage FROM Efficiency").fetchall() if fetch[0] not in config.model_periods])
+    for tech, row in config.import_techs.iterrows():
+        
+        # Get CANOE nomenclature for imported commodity
+        out_comm = config.fuel_commodities.loc[row['out_comm']]
 
-    for vint in vints:
-        curs.execute(f"""INSERT OR IGNORE INTO
-                        time_periods(t_periods, flag)
-                        VALUES({vint}, 'e')""")
+        # Make sure the model is using this imported commodity otherwise skip
+        if out_comm['comm'] not in used_comms: continue
+        
+        description = f"import dummy for {out_comm['description']}"
 
-
+        curs.execute(f"""REPLACE INTO
+                     technologies(tech, flag, sector, tech_desc)
+                     VALUES('{tech}', 'r', 'residential', '{description}')""")
+        
+        # A single vintage at first model period with no other parameters, classic dummy tech
+        for region in config.model_regions:
+            curs.execute(f"""REPLACE INTO
+                        Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes)
+                        VALUES('{region}', '{config.fuel_commodities.loc[row['in_comm'], 'comm']}', '{tech}',
+                        '{config.model_periods[0]}', '{out_comm['comm']}', 1, '{description})')""")
+            
     conn.commit()
     conn.close()
 
-
-
-# For regional post-subsector aggregation
-def aggregate_region_post(region):
-
-    # Connect to the new database file
-    conn = sqlite3.connect(config.database_file)
-    curs = conn.cursor() # Cursor object interacts with the sqlite db
-
-    """
-    ##############################################################
-        Annual Capacity Factor
-    ##############################################################
-    """
-
-    reference = f"{nrcan_ref}; {statcan_ref}"
-        
-    ## AEO future stock
-    # Copy from NRCan existing stock    
-    for tech, row in aeo_techs.iterrows():
-        if pd.isna(row['nrcan_equiv']):
-            print(f"{tech} has no specific NRCan equivalent and so will have no annual capacity factor.")
-            continue # no NRCan equivalent given
-        
-        end_uses = row['end_uses'].split('+')
-        nrcan_equivs = row['nrcan_equiv'].split('+')
-        nrcan_equivs = [nrcan_techs.loc[nrcan_techs['end_use'] + " - " + nrcan_techs['description'] == nrcan_equiv].index.values[0] for nrcan_equiv in nrcan_equivs]
-
-        for e in range(len(end_uses)):
-            
-            end_use = end_uses[e]
-            nrcan_tech = nrcan_equivs[e]
-
-            out_comm = end_use_demands.loc[end_use, 'comm']
-            
-            note = f"Assumed same as {nrcan_equivs[e]}"
-
-            # Get annual capacity factor from equivalent nrcan tech for which we have data
-            acf = curs.execute(f"SELECT max_acf FROM MaxAnnualCapacityFactor WHERE tech == '{nrcan_tech}' and regions == '{region}'").fetchone()[0]
-
-            for period in config.model_periods:
-                curs.execute(f"""REPLACE INTO
-                                MinAnnualCapacityFactor(regions, periods, tech, output_comm, min_acf, min_acf_notes,
-                                reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                                VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf*0.99}, '{note}',
-                                '{reference}', {base_year}, 2, 1, 1, {utils.dq_time(period, base_year)}, 3, 3)""")
-                curs.execute(f"""REPLACE INTO
-                                MaxAnnualCapacityFactor(regions, periods, tech, output_comm, max_acf, max_acf_notes,
-                                reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                                VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf}, '{note}',
-                                '{reference}', {base_year}, 2, 1, 1, {utils.dq_time(period, base_year)}, 3, 3)""")
-         
-
-
-    conn.commit()
-    conn.close()
+    print(f"Imports aggregated into {os.path.basename(config.database_file)}\n")
 
 
 
@@ -616,23 +691,14 @@ def cleanup():
 
                 print(f"Cleaned up existing tech with no existing capacity: {region}, {tech}")
 
-    
-
-    """
-    ##############################################################
-        End uses with one technology
-    ##############################################################
-    """
-
-    # For each region
-        # For each end use
-            # Check end use technologies
-            # If only one that isn't -EXS then no choice (remember utilisation is fixed)
-            # Determine average efficiency by period from ACFs, existing capacities/lifetimes, and efficiencies
-            # slate end use technologies for removal
-            # Add single new dummy technology with average efficiency by period (new vintage for each period?)
-            # D_R_FRZ -> R_FRZ
-
 
     conn.commit()
     conn.close()
+
+    print(f"Cleanup complete.\n")
+
+
+
+if __name__ == "__main__":
+    
+    aggregate()

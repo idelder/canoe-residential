@@ -50,12 +50,9 @@ def simplify_model():
                     curs.execute(f"""REPLACE INTO
                                 CostVariable(regions, periods, tech, vintage, data_cost_variable, data_cost_year, data_curr)
                                 VALUES('{region}', {period}, '{tech}', {vint}, {lcoa}, {2022}, '{"USD"}')""")
-                    
-    curs.execute(f"""UPDATE CostVariable
-                SET cost_variable = data_cost_variable * 1.05530864968912, 
-                cost_variable_units = 'MCAD2020/PJ'""")
     
     # Only one time period per year: S01, D01
+    curs.execute(f"INSERT OR IGNORE INTO time_periods(t_periods, flag) VALUES({config.model_periods[0]-1}, 'e')") # needs one existing period
     curs.execute(f"DELETE FROM time_season")
     curs.execute(f"DELETE FROM time_of_day")
     curs.execute(f"DELETE FROM SegFrac")

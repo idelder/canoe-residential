@@ -9,6 +9,28 @@ import yaml
 import requests
 import urllib.request
 import zipfile
+import sqlite3
+
+
+
+def instantiate_database():
+    
+    # Check if database exists or needs to be built
+    build_db = not os.path.exists(config.database_file)
+
+    # Connect to the new database file
+    conn = sqlite3.connect(config.database_file)
+    curs = conn.cursor() # Cursor object interacts with the sqlite db
+
+    # Build the database if it doesn't exist. Otherwise clear all data if forced
+    if build_db: curs.executescript(open(config.schema_file, 'r').read())
+    elif config.params['force_wipe_database']:
+        tables = [t[0] for t in curs.execute("""SELECT name FROM sqlite_master WHERE type='table';""").fetchall()]
+        for table in tables: curs.execute(f"DELETE FROM '{table}'")
+    
+    conn.commit()
+    conn.close()
+
 
 
 class config:
@@ -44,17 +66,22 @@ class config:
         stream = open(config.input_files + "params.yaml", 'r')
         config.params = dict(yaml.load(stream, Loader=yaml.Loader))
 
-        config.model_periods = list(config.params['model_periods'])
         config.aeo_techs = pd.read_csv(config.input_files + 'aeo_technologies.csv', index_col=0)
         config.aeo_techs = config.aeo_techs.loc[config.aeo_techs['include']] # drop techs that aren't to be included
         config.nrcan_techs = pd.read_csv(config.input_files + 'nrcan_technologies.csv', index_col=0)
+        config.import_techs = pd.read_csv(config.input_files + 'import_technologies.csv', index_col=0)
         config.regions = pd.read_csv(config.input_files + 'regions.csv', index_col=0)
         config.fuel_commodities = pd.read_csv(config.input_files + 'fuel_commodities.csv', index_col=0)
         config.end_use_demands = pd.read_csv(config.input_files + 'end_use_demands.csv', index_col=0)
         config.time = pd.read_csv(config.input_files + 'time.csv', index_col=0)
 
         config.all_techs = [*config.aeo_techs.index.values, *config.nrcan_techs.index.values]
-        config.model_regions = set(config.regions.loc[config.regions['include']].index)
+
+        # Included regions and future periods
+        config.model_periods = list(config.params['model_periods'])
+        config.model_periods.sort()
+        config.model_regions = config.regions.loc[(config.regions['include'])].index.unique().to_list()
+        config.model_regions.sort()
 
 
 
