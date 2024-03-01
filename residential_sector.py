@@ -34,6 +34,9 @@ def build_database():
     # Show any plots that have been made
     if config.params['simplify_model']: model_reduction.simplify_model()
     if config.params['clone_to_xlsx']: utils.DatabaseConverter().clone_sqlite_to_excel()
+
+    print(f"Residential sector aggregated into {os.path.basename(config.database_file)}\n")
+
     if config.params['show_plots']: pp.show()
 
 
