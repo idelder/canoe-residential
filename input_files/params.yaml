@@ -16,7 +16,7 @@ base_year: 2020 # Default year to pull data from
 global_discount_rate: 0.05
 
 # Currency, data costs are exchanged and inflated in post processing
-final_currency: 'CAD'
+final_currency: 'CAD' # Not configured to output currencies other than CAD yet
 final_currency_year: 2020
 inflation_index: 'gdp_deflator' # gdp_deflator, general_cpi, energy_and_petroleum, industrial, construction_non_residential
 

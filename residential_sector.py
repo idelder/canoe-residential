@@ -3,17 +3,10 @@ Builds residential sector database
 Written by Ian David Elder for the CANOE model
 """
 
-import sqlite3
 import os
 import all_subsectors
-import space_heating
-import space_cooling
-import water_heating
-import lighting
-import appliances
 import utils
 import currency_conversion
-import shutil
 import model_reduction
 import setup
 from setup import config
@@ -22,6 +15,8 @@ from matplotlib import pyplot as pp
 
 
 def build_database():
+
+    print(f"Aggregating residential sector into {os.path.basename(config.database_file)}...\n")
 
     setup.instantiate_database()
 

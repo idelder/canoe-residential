@@ -27,6 +27,7 @@ def instantiate_database():
     elif config.params['force_wipe_database']:
         tables = [t[0] for t in curs.execute("""SELECT name FROM sqlite_master WHERE type='table';""").fetchall()]
         for table in tables: curs.execute(f"DELETE FROM '{table}'")
+        print("Database wiped prior to aggregation. See params.\n")
     
     conn.commit()
     conn.close()
@@ -56,7 +57,7 @@ class config:
         cls._get_aeo_data(cls._instance)
         cls._get_population_projections(cls._instance)
 
-        print('Instantiated setup config.')
+        print('Instantiated setup config.\n')
 
         return cls._instance
 

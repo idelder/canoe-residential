@@ -50,6 +50,8 @@ def convert_currencies():
     conn.commit()
     conn.close()
 
+    print(f"Currencies converted to {base_year} {base_curr}.\n")
+
 
 
 if __name__ == "__main__":

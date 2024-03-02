@@ -35,6 +35,8 @@ conversion_factors = config.params['conversion_factors']
 
 def aggregate():
 
+    print("Aggregating sub-sector data...\n")
+
     pre_aggregate()
     
     ## Aggregate subsectors
@@ -43,13 +45,16 @@ def aggregate():
     water_heating.aggregate()
     lighting.aggregate()
     appliances.aggregate()
-    
+
     if config.params['include_dsd']: aggregate_dsd()
     if config.params['include_emissions']: aggregate_emissions()
     if config.params['include_imports']: aggregate_imports()
 
     post_aggregate()
+
     cleanup()
+
+    print(f"Sub-sector data aggregated into {os.path.basename(config.database_file)}\n")
 
 
 

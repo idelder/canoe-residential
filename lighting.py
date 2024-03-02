@@ -28,11 +28,9 @@ in_comm = config.fuel_commodities.loc['electricity']
 lighting = config.end_use_demands.loc['lighting']
 acf = config.params['lighting']['annual_capacity_factor']
 
-
-
 """
 ##############################################################
-    Non-regional setup
+    Non-regional data
 ##############################################################
 """
 
@@ -46,6 +44,8 @@ aeo_data = pd.read_csv(config.input_files + '/aeo_lighting_data.csv', index_col=
 aeo_techs = pd.read_csv(config.input_files + '/aeo_lighting_technologies.csv', index_col=0)
 aeo_techs = aeo_techs.loc[aeo_techs['include']] # drop techs not to be included
 
+
+
 # Gets a value from aeo lighting data
 def get_aeo_value(code, metric, vintage):
     
@@ -58,6 +58,8 @@ def get_aeo_value(code, metric, vintage):
     if pd.isna(value): value = aeo_data.loc[aeo_data['metric']==metric].loc[code, 'existing']
     
     return value
+
+
 
 # Gets relative usage rates of bulb types for a province from Statcan table 38100048
 def get_usage(region):
