@@ -109,7 +109,7 @@ def aggregate_region(region):
     """
 
     # Existing cooling stock from NRCan data
-    t27_stk = utils.get_compr_db(region, 27, 3, 4)/1000 # Munit
+    t27_stk = utils.get_compr_db(region, 27, 3, 4) # kunit
 
     # Notes for database
     note = f"{base_year} stock (NRCan, {base_year}) distributed evenly over feasible preceding vintages."

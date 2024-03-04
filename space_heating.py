@@ -49,7 +49,7 @@ def aggregate_region(region):
     t8_sec = utils.get_compr_db(region, 8, 3, 17)
 
     # Table 26: Heating System Stock Efficiencies
-    t26_eff = utils.get_compr_db(region, 26, 2, 27)/100
+    t26_eff = utils.get_compr_db(region, 26, 2, 27) / 100 # to %
 
     # Multiply secondary energy by efficiency to get output heating energy
     # Dual fuel systems make this a little painful
@@ -177,7 +177,7 @@ def aggregate_region(region):
     """
 
     # Table 21: Heating System Stock by Building Type and Heating System Type
-    t21_stk = utils.get_compr_db(region, 21, 16, 30)/1000 # Munit
+    t21_stk = utils.get_compr_db(region, 21, 16, 30) # kunit
 
     # Notes for database
     note = f"{base_year} stock (NRCan, {base_year}) distributed evenly over feasible preceding vintages."
@@ -258,8 +258,9 @@ def aggregate_furnace_fans(region):
 
     frn_fan = config.params['furnace_fans'] # parameters relating to furnace fans
     eff = frn_fan['efficiency']
+    elc_comm = config.fuel_commodities.loc['electricity']
     split = eff * frn_fan['output_split'] / (1 + eff * frn_fan['output_split']) # calculating TOS to achieve correct electricity consumption
-    tos_note = f"({fuel_commodities.loc['electricity', 'unit']}/{space_heating['dem_unit']}) Furnace fan electricity consumption. x/(1+x) where x is assumed 6 kWh into fan / MMBtu out (nyserda, 2013)."
+    tos_note = f"({elc_comm['unit']}/{space_heating['dem_unit']}) Furnace fan electricity consumption. x/(1+x) where x is assumed 6 kWh into fan / MMBtu out (nyserda, 2013)."
 
     # Get technologies that need furnace fan consumption (fan tag in AEO data and space heating end use)
     fan_classes = config.aeo_res_class.loc[config.aeo_res_class['Furnace Fan Flag']==1].index.unique()
@@ -277,8 +278,8 @@ def aggregate_furnace_fans(region):
 
             curs.execute(f"""REPLACE INTO
                     Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes, dq_est)
-                    VALUES('{region}', '{config.fuel_commodities.loc['electricity', 'comm']}', '{tech}', {vint},
-                    '{frn_fan['output_commodity']}', {eff}, 'arbitrarily small non-zero efficiency', 0)""")
+                    VALUES('{region}', '{elc_comm['comm']}', '{tech}', {vint},
+                    '{elc_comm['comm']}', {eff}, 'arbitrarily small non-zero efficiency', 0)""")
         
         # Set ratio of fan electricity consumption to output heat
         for period in config.model_periods:
@@ -287,8 +288,8 @@ def aggregate_furnace_fans(region):
             curs.execute(f"""REPLACE INTO
                     TechOutputSplit(regions, periods, tech, output_comm, to_split, to_split_notes,
                     reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                    VALUES('{region}', {period}, '{tech}', '{frn_fan['output_commodity']}', {split}, '{tos_note}',
-                    '{frn_fan['reference']}', {2013}, 3, 1, 1, {utils.dq_time(2013, period)}, 3, 3)""")
+                    VALUES('{region}', {period}, '{tech}', '{elc_comm['comm']}', {split}, '{tos_note}',
+                    '{frn_fan['reference']}', {frn_fan['data_year']}, 3, 1, 1, {utils.dq_time(frn_fan['data_year'], period)}, 3, 3)""")
     
 
     conn.commit()

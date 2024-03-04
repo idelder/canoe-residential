@@ -351,6 +351,8 @@ def pre_aggregate_region(region):
         end_use = row['end_use']
 
         c2a = end_use_demands.loc[end_use, 'c2a']
+        if pd.isna(c2a): continue
+
         unit = f"{end_use_demands.loc[end_use, 'dem_unit']}/{end_use_demands.loc[end_use, 'cap_unit']}.y" # ACT/CAP.y
         curs.execute(f"""REPLACE INTO
                         CapacityToActivity(regions, tech, c2a, c2a_notes, dq_est)
@@ -538,11 +540,6 @@ def aggregate_dsd():
 
             # Consumption for each housing type times provincial stock of that housing type
             con = sum([t14[housing_type] * cons[state][housing_type][end_use] for housing_type in t14.index])
-
-            if (end_use == 'space heating'):
-                pp.figure()
-                pp.plot(con.to_numpy())
-                pp.title('US data')
 
             # Map space heating, cooling to temperature and dew point temp (humidity). Note: this might introduce weather efficiency to the demand!
             time_of_week = None

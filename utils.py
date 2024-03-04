@@ -198,7 +198,7 @@ def stock_vintages(stock_year, lifetime, vint_interval=config.params['period_ste
     
 
 
-class DatabaseConverter:
+class database_converter:
     
     # Singleton pattern
     _instance = None
@@ -207,7 +207,7 @@ class DatabaseConverter:
 
         if isinstance(cls._instance, cls): return cls._instance
 
-        cls._instance = super(DatabaseConverter, cls).__new__(cls, *args, **kwargs)
+        cls._instance = super(database_converter, cls).__new__(cls, *args, **kwargs)
 
         print('Instantiated database converter.')
 

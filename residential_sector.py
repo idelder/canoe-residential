@@ -9,6 +9,7 @@ import utils
 import currency_conversion
 import model_reduction
 import setup
+import sqlite3
 from setup import config
 from matplotlib import pyplot as pp
 
@@ -28,17 +29,11 @@ def build_database():
 
     # Show any plots that have been made
     if config.params['simplify_model']: model_reduction.simplify_model()
-    if config.params['clone_to_xlsx']: utils.DatabaseConverter().clone_sqlite_to_excel()
+    if config.params['clone_to_xlsx']: utils.database_converter().clone_sqlite_to_excel()
 
     print(f"Residential sector aggregated into {os.path.basename(config.database_file)}\n")
 
     if config.params['show_plots']: pp.show()
-
-
-
-if __name__ == "__main__":
-    
-    build_database()
 
 
 
@@ -49,6 +44,9 @@ if __name__ == "__main__":
 """
 
 def prep_high_res_testing():
+
+    conn = sqlite3.connect(config.database_file)
+    curs = conn.cursor()
     
     fuel_costs = {
         "NG": 8.847,
@@ -120,15 +118,6 @@ def prep_high_res_testing():
 
     # Add fuel imports and costs
     for fuel, cost in fuel_costs.items():
-        curs.execute(f"""INSERT OR IGNORE INTO
-                    technologies(tech, flag, sector, tech_desc)
-                    VALUES('R_IMP_{fuel}', 'r', 'residential', 'testing dummy')""")
-        
-        for region in config.model_regions:
-            curs.execute(f"""REPLACE INTO
-                        Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes, data_flags)
-                        VALUES('{region}', 'R_ethos', 'R_IMP_{fuel}', {config.model_periods[0]}, 'R_{fuel}', 1, 'testing dummy', 'TEST')""")
-            
             for period in config.model_periods:
                 curs.execute(f"""REPLACE INTO
                             CostVariable(regions, periods, tech, vintage, data_cost_variable, data_cost_year, data_curr, data_flags)
@@ -143,3 +132,12 @@ def prep_high_res_testing():
     for table in cost_tables:
         curs.execute(f"""UPDATE {table.replace('_','')}
                     SET {table.lower()} = data_{table.lower()}""")
+        
+    conn.commit()
+    conn.close()
+
+
+
+if __name__ == "__main__":
+    
+    build_database()

@@ -80,8 +80,8 @@ def aggregate_region(region):
     reference = nrcan_ref
 
     # Table 31: Appliance Stock by Appliance Type and Energy Source
-    t31_elc_stk = utils.get_compr_db(region, 31, 20, 26)/1000 # Munit
-    t31_ng_stk = utils.get_compr_db(region, 31, 38, 39)/1000 # Munit
+    t31_elc_stk = utils.get_compr_db(region, 31, 20, 26) # kunit
+    t31_ng_stk = utils.get_compr_db(region, 31, 38, 39) # kunit
     pop = config.populations[region]
 
     dems = dict() # sums up demand by end use
@@ -132,7 +132,7 @@ def aggregate_region(region):
             curs.execute(f"""REPLACE INTO
                     Demand(regions, periods, demand_comm, demand, demand_units, demand_notes,
                     reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                    VALUES('{region}', {period}, '{config.end_use_demands.loc[row['end_use'], 'comm']}', {dem}, '({config.end_use_demands.loc[row['end_use'], 'dem_unit']})', '{note}',
+                    VALUES('{region}', {period}, '{config.end_use_demands.loc[end_use, 'comm']}', {dem}, '({config.end_use_demands.loc[end_use, 'dem_unit']})', '{note}',
                     '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(period, base_year)}, 1, 1)""")
         
 
@@ -179,7 +179,7 @@ def aggregate_region(region):
 
     # Generic unit energy consumption of nrcan technologies
     hb_uec = utils.get_data(f"https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/data_e/downloads/handbook/Excel/{2020}/res_00_16_e.xls", skiprows=7)
-    hb_uec = hb_uec.drop('Unnamed: 0', axis=1).set_index('Unnamed: 1').dropna() * config.params['conversion_factors']['activity']['kwh'] * 1E6 # kWh/unity to PJ/Munity
+    hb_uec = hb_uec.drop('Unnamed: 0', axis=1).set_index('Unnamed: 1').dropna() * config.params['conversion_factors']['activity']['kwh'] * 1000 # /unity to /kunity
     utils.clean_index(hb_uec)
     hb_uec_elc = hb_uec.iloc[8:14]
     hb_uec_ng = hb_uec.iloc[14:16]

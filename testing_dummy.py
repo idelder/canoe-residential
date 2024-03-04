@@ -15,4 +15,7 @@ import numpy as np
 from matplotlib import pyplot as pp
 from datetime import datetime
 
-print(config.aeo_techs.reset_index().set_index(['end_uses','fuel']))
+conn = sqlite3.connect(config.database_file)
+curs = conn.cursor()
+
+curs.execute("VACUUM")

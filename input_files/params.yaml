@@ -32,7 +32,7 @@ excel_output: "residential.xlsx"
 force_wipe_database: true # Forces clearing of all data in database prior to aggregation
 force_generate_weather_maps: false # Force regeneration of weather maps
 force_download: false # Forces downloading data again instead of using cached versions
-show_plots: false
+show_plots: true
 include_dsd: true # Aggregating DSDs is slow
 include_imports: true # Aggregates dummy import technologies for fuels
 include_emissions: true
@@ -77,8 +77,8 @@ conversion_factors:
 
 furnace_fans:
   output_split: 0.0205 # PJ elc in / PJ heat out, from 6 kWh/MMBtu
-  output_commodity: 'R_ELC'
   efficiency: 0.001
+  data_year: 2013
   reference: 'nyserda. (2013, April 15). Gas Furnace Electricity Usage. https://www.taitem.com/wp-content/uploads/tt_furnace_electricity_use_20130507.pdf'
 
 appliances:

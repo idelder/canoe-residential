@@ -54,7 +54,7 @@ def aggregate_region(region):
         # Input commodity
         in_comm = fuel_commodities.loc[row.loc['fuels']]
 
-        note = f"({water_heating['dem_unit']}/{in_comm['unit']})"
+        note = f"({water_heating['dem_unit']}/{in_comm['unit']}) base efficiency from class table"
 
         # Taking efficiency from base efficiency of AEO class - not great but it'll do
         eff = aeo_res_class.loc[row['aeo_class'], 'Base Efficiency']
@@ -111,7 +111,7 @@ def aggregate_region(region):
     """
 
     # Table 28: Water Heater Stock by Building Type and Energy Source
-    t28_stk = utils.get_compr_db(region, 28, 15, 20)/1000 # Munit
+    t28_stk = utils.get_compr_db(region, 28, 15, 20) # kunit
 
     # Notes for database
     note = f"{base_year} stock (NRCan, {base_year}) indexed to population (Statcan, {statcan_year}) and distributed evenly over feasible past vintages."
