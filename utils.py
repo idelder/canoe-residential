@@ -11,15 +11,10 @@ import sqlite3
 import pandas as pd
 import requests
 import xmltodict
-import json
 from setup import config
 import urllib.request
 import zipfile
-import itertools
-import time
-import threading
-import sys
-from matplotlib import pyplot as pp
+import pickle
 
 
 # Cleans up strings for filenames, databases, etc.
@@ -95,20 +90,22 @@ def get_statcan_table(table, save_as=None, **kwargs):
     
 
 
-def get_compr_db(region, table_number, first_row=0, last_row=None):
+def get_compr_db(region, table_number, first_row=0, last_row=None) -> pd.DataFrame:
 
-    table = get_data(compr_db_url(region, table_number), skiprows=10)
-    table = table.loc[first_row::] if last_row is None else table.loc[first_row:last_row]
-    table = table.drop("Unnamed: 0", axis=1).set_index('Unnamed: 1').dropna()
-    table.index.name = None
-    clean_index(table)
+    df = get_data(compr_db_url(region, table_number), skiprows=10)
+    df = df.loc[first_row::] if last_row is None else df.loc[first_row:last_row]
+    df = df.drop("Unnamed: 0", axis=1).set_index('Unnamed: 1').dropna()
+    df.index.name = None
+    df.columns = [int(col) for col in df.columns]
+    clean_index(df)
+    df = df.astype(float, errors='ignore')
 
-    return table
+    return df
 
 
 
 # Downloads and handles local caching of data sources
-def get_data(url, file_type=None, cache_file_type=None, name=None, **kwargs) -> pd.DataFrame:
+def get_data(url, file_type=None, cache_file_type=None, name=None, **kwargs) -> pd.DataFrame | None:
 
     # Get the original file name
     if name == None: name = url.split("/")[-1].split("\\")[-1]
@@ -117,51 +114,47 @@ def get_data(url, file_type=None, cache_file_type=None, name=None, **kwargs) -> 
     file_type = file_type.lower()
 
     if cache_file_type == None:
-        if file_type == "xml": cache_file_type = "json"
-        elif file_type == "xls": cache_file_type = "xlsx"
+        if file_type == "xml": cache_file_type = "pkl"
+        elif "xl" in file_type: cache_file_type = "csv"
         else: cache_file_type = file_type
     
     # If file type is different from new file type
-    if url.split(".")[-1] != cache_file_type: name = os.path.splitext(name)[0] + "."+cache_file_type
+    if name.split(".")[-1] != cache_file_type: name = os.path.splitext(name)[0] + "."+cache_file_type
     cache_file = config.cache_dir + name
 
     data = None
     if (not config.params['force_download'] and os.path.isfile(cache_file)):
         
         # Get from existing local cache
-        if cache_file_type == "csv": data = pd.read_csv(cache_file, index_col=0)
-        elif "xl" in cache_file_type: data = pd.read_excel(cache_file, index_col=0)
-        elif cache_file_type == "xml": data = json.load(open(cache_file))
+        if cache_file_type == "csv": data = pd.read_csv(cache_file, index_col=0, dtype='unicode')
+        elif cache_file_type == "pkl":
+            with open(cache_file, 'rb') as file: data = pickle.load(file)
+
         print(f"Got {name} from local cache.")
         
     else:
 
         print(f"Downloading {name} ...")
 
-        is_done = [False]
-        #working_wheel(is_done)
-
         try:
             # Download from url
             if file_type == "csv": data = pd.read_csv(url, **kwargs)
             elif "xl" in file_type: data = pd.read_excel(url, **kwargs)
-            elif file_type == "xml": data = json.dumps(xmltodict.parse(requests.get(url).content))
+            elif file_type == "xml": data = xmltodict.parse(requests.get(url).content)
         except Exception as e:
-            print(url)
+            print(f"Failed to download {url}")
             print(e)
-        finally:
-            is_done[0] = True
 
         # Try to cache downloaded file
         try:
             if not os.path.exists(config.cache_dir): os.mkdir(config.cache_dir)
 
             if cache_file_type == "csv": data.to_csv(cache_file)
-            elif "xl" in cache_file_type: data.to_excel(cache_file)
-            elif cache_file_type == "xml":
-                with open(cache_file, 'w') as outfile: outfile.write(data)
+            elif cache_file_type == "pkl":
+                with open(cache_file, 'wb') as file: pickle.dump(data, file)
             print(f"Cached {name}.")
         except Exception as e:
+            print(f"Failed to cache {cache_file}.")
             print(e)
 
     return data
@@ -186,7 +179,7 @@ def dq_time(from_year, to_year):
 
 
 
-def stock_vintages(stock_year, lifetime, vint_interval=config.params['period_step']) -> list:
+def stock_vintages(stock_year, lifetime, vint_interval=config.params['period_step']) -> tuple[list, list]:
 
     vint_0 = stock_year - stock_year % vint_interval # first stepped back vint
 
@@ -194,7 +187,12 @@ def stock_vintages(stock_year, lifetime, vint_interval=config.params['period_ste
     vints = list(range(int(vint_0), int(stock_year-lifetime), -int(vint_interval)))
     vints.sort()
 
-    return vints
+    if stock_year not in vints: vints.append(stock_year)
+    
+    if len(vints) == 1: weights = [1]
+    else: weights = [vint_interval / (vints[-1]-vints[0])] * (len(vints) - 1) + [stock_year%vint_interval / (vints[-1]-vints[0])]
+
+    return vints, weights
     
 
 
@@ -288,22 +286,3 @@ class database_converter:
                 ws.append(row.values.tolist())
 
         wb.save(to_excel_file)
-
-
-
-def animate_wheel(is_done):
-    for c in itertools.cycle(['|', '/', '-', '\\']):
-        time.sleep(0.1)
-        if is_done[0]:
-            break
-        sys.stdout.write('\r' + c)
-        sys.stdout.flush()
-        time.sleep(0.1)
-    sys.stdout.write('\r')
-    sys.stdout.flush()
-
-
-
-def working_wheel(is_done):
-    t = threading.Thread(target=animate_wheel, args=(is_done,))
-    t.start()

@@ -30,6 +30,11 @@ def instantiate_database():
         print("Database wiped prior to aggregation. See params.\n")
     
     conn.commit()
+
+    # VACUUM operation to clean up any empty rows
+    curs.execute("VACUUM;")
+    conn.commit()
+
     conn.close()
 
 
@@ -68,7 +73,6 @@ class config:
         config.params = dict(yaml.load(stream, Loader=yaml.Loader))
 
         config.aeo_techs = pd.read_csv(config.input_files + 'aeo_technologies.csv', index_col=0)
-        config.aeo_techs = config.aeo_techs.loc[config.aeo_techs['include']] # drop techs that aren't to be included
         config.nrcan_techs = pd.read_csv(config.input_files + 'nrcan_technologies.csv', index_col=0)
         config.import_techs = pd.read_csv(config.input_files + 'import_technologies.csv', index_col=0)
         config.regions = pd.read_csv(config.input_files + 'regions.csv', index_col=0)

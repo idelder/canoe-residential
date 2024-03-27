@@ -65,7 +65,7 @@ def aggregate_region(region):
         # To handle multple techs of the same fuel, take efficiencies from the table in order
         if fuel not in tracker.keys(): tracker[fuel] = 0
         if type(eff) is pd.Series:
-            eff = eff[tracker[fuel]]
+            eff = eff.iloc[tracker[fuel]]
             tracker[fuel] += 1
 
         # Demanded primary energy is secondary input energy times efficiency
@@ -74,14 +74,14 @@ def aggregate_region(region):
 
     # Index demand to population growth
     pop = config.populations[region]
-    dem = activity.sum() * pop / pop.loc[base_year]
+    dem: pd.Series = activity.sum() * pop / pop.loc[base_year]
 
     # Write to database
     for period in config.model_periods:
         curs.execute(f"""REPLACE INTO
                     Demand(regions, periods, demand_comm, demand, demand_units, demand_notes,
                     reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                    VALUES('{region}', {period}, '{space_heating['comm']}', {float(dem.loc[period])}, '({space_heating['dem_unit']})', '{note}',
+                    VALUES('{region}', {period}, '{space_heating['comm']}', {dem.loc[period].iloc[0]}, '({space_heating['dem_unit']})', '{note}',
                     '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(period, base_year)}, 1, 1)""")
 
 
@@ -116,7 +116,7 @@ def aggregate_region(region):
                 # To handle multple techs of the same fuel, take efficiencies from the table in order, (skipping one for wood, annoying)
                 if fuel not in tracker.keys(): tracker[fuel] = 1 if fuel == 'Wood' else 0
                 if type(eff) is pd.Series: # multiples exist
-                    eff = eff[tracker[fuel]] # take the next in the list
+                    eff = eff.iloc[tracker[fuel]] # take the next in the list
                     tracker[fuel] += 1 # move up the tracker
 
                 # Input commodity
@@ -198,16 +198,22 @@ def aggregate_region(region):
         existing_cap = sum([t21_stk.loc[substock, base_year] for substock in substocks])
         
         # Distribute existing capacities evenly over feasible vintages
-        vints = config.tech_vints[tech]
+        vints, weights = utils.stock_vintages(base_year, config.lifetimes[tech])
         
         # Write existing capacities to database
-        for vint in vints:
+        for v in range(len(vints)):
+
+            vint = vints[v]
+            weight = weights[v]
+
             if vint + config.lifetimes[tech] <= config.model_periods[0]: continue
+
+            exs_cap = existing_cap * weight
 
             curs.execute(f"""REPLACE INTO
                         ExistingCapacity(regions, tech, vintage, exist_cap, exist_cap_units, exist_cap_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{tech}', {vint}, {existing_cap / len(vints)}, '({space_heating['cap_unit']})', '{note}',
+                        VALUES('{region}', '{tech}', {vint}, {exs_cap}, '({space_heating['cap_unit']})', '{note}',
                         '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(config.model_periods[0], base_year)}, 1, 1)""")
         
 

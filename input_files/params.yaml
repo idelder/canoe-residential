@@ -10,7 +10,8 @@ model_periods:
   - 2040
   - 2045
   - 2050
-  
+
+weather_year: 2018
 base_year: 2020 # Default year to pull data from
 
 global_discount_rate: 0.05
@@ -29,8 +30,9 @@ sqlite_database: "residential.sqlite"
 excel_template: "Template spreadsheet (make a copy).xlsx"
 excel_output: "residential.xlsx"
 
+## Aggregation switches
 force_wipe_database: true # Forces clearing of all data in database prior to aggregation
-force_generate_weather_maps: false # Force regeneration of weather maps
+force_generate_weather_maps: false # Force regeneration of weather maps instead of using locally cached versions
 force_download: false # Forces downloading data again instead of using cached versions
 show_plots: true
 include_dsd: true # Aggregating DSDs is slow

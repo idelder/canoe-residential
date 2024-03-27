@@ -151,8 +151,8 @@ def pre_aggregate():
         weibull_l = aeo_res_class.loc[aeo_class, 'Weibull λ']
 
         # There are double ups of class for heat pumps because two end uses
-        if type(weibull_k) is pd.Series: weibull_k = weibull_k.values[0]
-        if type(weibull_l) is pd.Series: weibull_l = weibull_l.values[0]
+        if type(weibull_k) is pd.Series: weibull_k = weibull_k.iloc[0]
+        if type(weibull_l) is pd.Series: weibull_l = weibull_l.iloc[0]
 
         lifetime = round(weibull_l * gamma(1 + 1/weibull_k)) # mean of weibull distribution
 
@@ -182,7 +182,7 @@ def pre_aggregate():
 
         # Add lifetimes and feasible vintages to config dictionaries
         config.lifetimes[tech] = lifetime
-        exs_vints = utils.stock_vintages(base_year, lifetime)
+        exs_vints, _weights = utils.stock_vintages(base_year, lifetime)
         config.tech_vints[tech] = exs_vints
 
 
@@ -249,7 +249,7 @@ def pre_aggregate_region(region):
             
             if type(df1) is pd.DataFrame:
                 df2 = df1.loc[(df1['First Year']<=vint) & (vint<=df1['Last Year'])]
-                cost_invest = df2.loc[df2['New Construction Cost'] != 0]['New Construction Cost'].values[0]
+                cost_invest = df2.loc[df2['New Construction Cost'] != 0]['New Construction Cost'].iloc[0]
             elif type(df1) is pd.Series:
                 df2 = df1 # only one row remaining
                 cost_invest = df2['New Construction Cost']
@@ -283,11 +283,11 @@ def pre_aggregate_region(region):
 
                 out_comm = end_use_demands.loc[end_use, 'comm']
                 
-                if type(df2) is pd.DataFrame: eff = df2.loc[(df2['End Use'] == int(end_use_id))]['Efficiency'].values[0]
+                if type(df2) is pd.DataFrame: eff = df2.loc[(df2['End Use'] == int(end_use_id))]['Efficiency'].iloc[0]
                 elif type(df2) is pd.Series: eff = df2['Efficiency'] # only one row remaining
 
                 eff_metric = aeo_res_class.loc[aeo_res_class['End Use'] == int(end_use_id)].loc[aeo_class, 'Efficiency Metric']
-                if type(eff_metric) is pd.Series: eff_metric = eff_metric.values[0]
+                if type(eff_metric) is pd.Series: eff_metric = eff_metric.iloc[0]
                 if eff_metric in config.params['conversion_factors']['efficiency'].keys(): eff *= config.params['conversion_factors']['efficiency'][eff_metric]
 
                 ## Default Efficiency
@@ -496,7 +496,8 @@ def aggregate_dsd():
             cons[state][housing_type] = dict()
 
             df_res = utils.get_data(config.params['resstock']['url'].replace("<s>",state.upper()).replace("<f>", file_name).replace("<s>", state.lower()))
-            stock = df_res['units_represented'].values[0]
+            df_res.fillna(0, inplace=True)
+            stock = df_res['units_represented'].iloc[0]
 
             for end_use in config.end_use_demands.index:
                 
@@ -505,7 +506,7 @@ def aggregate_dsd():
                 for res_col in res_cols.index:
                     
                     # Divide consumption by number of units represented to get consumption per household
-                    con = df_res[res_col].iloc[[8760, *range(3, 4*8760-1, 4)]].clip(lower=0) / stock # 15-minutely so take every 4th
+                    con = df_res[res_col].iloc[[8760, *range(3, 4*8760-1, 4)]].astype(float).clip(lower=0) / float(stock) # 15-minutely so take every 4th
 
                     if end_use in cons[state][housing_type].keys(): cons[state][housing_type][end_use] += con
                     else: cons[state][housing_type][end_use] = con
@@ -539,15 +540,16 @@ def aggregate_dsd():
             demand_comm = row['comm']
 
             # Consumption for each housing type times provincial stock of that housing type
-            con = sum([t14[housing_type] * cons[state][housing_type][end_use] for housing_type in t14.index])
+            con_us = sum([t14[housing_type] * cons[state][housing_type][end_use] for housing_type in t14.index])
 
             # Map space heating, cooling to temperature and dew point temp (humidity). Note: this might introduce weather efficiency to the demand!
             time_of_week = None
-            if row['use_weather_map']: con, time_of_week = weather_mapping.map_data(region, con.to_numpy())
+            if row['use_weather_map']: con_ca, time_of_week = weather_mapping.map_data(region, con_us.to_numpy())
+            else: con_ca = con_us
 
             # Apply tolerance and normalise
-            con.loc[con < con.mean() * config.params['dsd_tolerance']] = 0
-            dsd = (con / con.sum()).to_list()
+            con_ca.loc[con_ca < con_ca.mean() * config.params['dsd_tolerance']] = 0
+            dsd = (con_ca / con_ca.sum()).to_list()
 
             # For plotting DSDs
             row = p // 3  # Integer division to determine row
@@ -562,8 +564,8 @@ def aggregate_dsd():
                     curs.execute(f"""REPLACE INTO
                                 DemandSpecificDistribution(regions, season_name, time_of_day_name, demand_name, dsd, dsd_notes,
                                 reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                                VALUES('{region}', '{config.time.loc[h, 'season']}', '{config.time.loc[h, 'time_of_day']}', '{demand_comm}', '{dsd[h]}', '{note}',
-                                '{reference}', {us_year}, 3, 2, 1, {utils.dq_time(base_year, us_year)}, 3, 3)""")
+                                VALUES('{region}', '{config.time.loc[h, 'season']}', '{config.time.loc[h, 'time_of_day']}', '{demand_comm}', '{dsd[h]}', '',
+                                '', {us_year}, 3, 2, 1, {utils.dq_time(base_year, us_year)}, 3, 3)""")
             except: pp.show()
 
         pp.tight_layout()
@@ -606,7 +608,7 @@ def aggregate_emissions():
         for row in rows:
 
             # Input fuel by epa naming convention
-            epa_fuel = fuel_commodities.loc[fuel_commodities['comm'] == row[1], 'epa_fuel'].values[0]
+            epa_fuel = fuel_commodities.loc[fuel_commodities['comm'] == row[1], 'epa_fuel'].iloc[0]
             if pd.isna(epa_fuel): continue # doesn't need emissions
 
             # EmissionActivity is tied to OUTPUT energy so divide by efficiency

@@ -127,7 +127,7 @@ def aggregate_region(region):
     for end_use, exs_dem in dems.items():
         for period in config.model_periods:
 
-            dem = exs_dem * pop.loc[period].values[0] / pop.loc[base_year].values[0]
+            dem = exs_dem * pop.loc[period].iloc[0] / pop.loc[base_year].iloc[0]
 
             curs.execute(f"""REPLACE INTO
                     Demand(regions, periods, demand_comm, demand, demand_units, demand_notes,
@@ -178,9 +178,10 @@ def aggregate_region(region):
     reference = config.params['handbook_reference']
 
     # Generic unit energy consumption of nrcan technologies
-    hb_uec = utils.get_data(f"https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/data_e/downloads/handbook/Excel/{2020}/res_00_16_e.xls", skiprows=7)
-    hb_uec = hb_uec.drop('Unnamed: 0', axis=1).set_index('Unnamed: 1').dropna() * config.params['conversion_factors']['activity']['kwh'] * 1000 # /unity to /kunity
+    hb_uec = utils.get_data(f"https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/data_e/downloads/handbook/Excel/{config.params['base_year']}/res_00_16_e.xls", skiprows=7)
+    hb_uec: pd.DataFrame = hb_uec.drop('Unnamed: 0', axis=1).set_index('Unnamed: 1').dropna().astype(float, errors='ignore') * config.params['conversion_factors']['activity']['kwh'] * 1000 # /unity to /kunity
     utils.clean_index(hb_uec)
+    hb_uec.columns = [int(col) for col in hb_uec.columns]
     hb_uec_elc = hb_uec.iloc[8:14]
     hb_uec_ng = hb_uec.iloc[14:16]
 
@@ -246,7 +247,7 @@ def aggregate_region(region):
         for vint in vints:
 
             # Relevant to this vintage
-            if type(df1) is pd.DataFrame: new_eff = df1.loc[(df1['First Year']<=vint) & (vint<=df1['Last Year']), 'Efficiency'].values[0]
+            if type(df1) is pd.DataFrame: new_eff = df1.loc[(df1['First Year']<=vint) & (vint<=df1['Last Year']), 'Efficiency'].iloc[0]
             elif type(df1) is pd.Series: new_eff = df1['Efficiency'] # only one row remaining
 
             if new_eff >= base_eff: eff = eff_exs * new_eff / base_eff

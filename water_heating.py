@@ -99,7 +99,7 @@ def aggregate_region(region):
         curs.execute(f"""REPLACE INTO
                     Demand(regions, periods, demand_comm, demand, demand_units, demand_notes,
                     reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                    VALUES('{region}', {period}, '{water_heating['comm']}', {float(dem.loc[period])}, '({water_heating['dem_unit']})', '{note}',
+                    VALUES('{region}', {period}, '{water_heating['comm']}', {dem.loc[period].iloc[0]}, '({water_heating['dem_unit']})', '{note}',
                     '{reference}', {base_year}, 2, 1, 1, {utils.dq_time(period, base_year)}, 1, 3)""")
 
     

@@ -7,16 +7,16 @@ from setup import config
 
 weather_maps = dict() # Maps that have already been loaded weather_maps[region] = 8760x8760 np array
 
-def map_data(region, us_data) -> pd.Series:
+def map_data(region: str, us_data: np.ndarray) -> tuple[pd.Series, np.ndarray]:
 
     us_state = config.regions.loc[region, 'us_state']
     us_station = str(config.regions.loc[region, 'us_station'])
     ca_station = str(config.regions.loc[region, 'ca_station'])
-    map_file = f"weather_map_{us_state}_{us_station}-{region}_{ca_station}.csv"
+    map_file = f"weather_map_{us_state}_{us_station}-{region}_{ca_station}_{str(config.params['weather_year'])}.csv"
     
     # If the mapper already exists then just use it
     # Already loaded
-    if region in weather_maps.keys():return apply_map(region, us_data)
+    if region in weather_maps.keys(): return apply_map(region, us_data)
     # Load from local cache
     elif not config.params['force_generate_weather_maps'] and os.path.isfile(config.cache_dir + map_file):
         print(f"Loading weather map {map_file} from local cache...")
@@ -37,6 +37,7 @@ def map_data(region, us_data) -> pd.Series:
         config.params['weather']['us']['url']
         .replace('<st>', us_station)
         .replace('<y>', str(config.params['weather']['us']['year']))
+        , name=f"climate_us_{us_state}_{us_station}_{str(config.params['weather']['us']['year'])}.csv"
         , index_col=1, usecols=range(15)
         )
     df_us_wth = df_us_wth.loc[df_us_wth.index.str.contains('53')] # TODO This may not apply to all stations watch out
@@ -58,18 +59,25 @@ def map_data(region, us_data) -> pd.Series:
                         v = float(df_us_wth.loc[idx, val].split(',')[0])/10
                         if v > 50: v = pd.NA
                     df_us.loc[i, val] = v
+                # Including wind speed to potentially improve modelling
+                for val in ['WND']:
+                    if idx not in df_us_wth.index: v = pd.NA
+                    else:
+                        v = float(df_us_wth.loc[idx, val].split(',')[-2])/10
+                        if v > 500: v = pd.NA
+                    df_us.loc[i, val] = v
 
                 i+=1
 
-    # Fill in temperature gaps by chronological linear interpolation
-    df_us.interpolate(method='linear', axis='columns', inplace=True)
+    # Fill in data gaps by chronological linear interpolation
+    for col in ['TMP','DEW','WND']: df_us[col].interpolate(method='linear', inplace=True)
 
     # Canadian weather data
     df_ca = utils.get_data(
         config.params['weather']['canada']['url']
         .replace('<st>', ca_station)
         .replace('<r>', region)
-        .replace('<y>', str(config.params['base_year']))
+        .replace('<y>', str(config.params['weather_year']))
         , encoding='unicode_escape', usecols=range(12)
         ).iloc[0:8760]
 
@@ -113,7 +121,7 @@ def map_data(region, us_data) -> pd.Series:
 
 
 
-def apply_map(region, us_data):
+def apply_map(region: str, us_data: np.ndarray) -> tuple[pd.Series, np.ndarray]:
 
     print(f"Applying weather map for {region}...")
 
@@ -122,9 +130,9 @@ def apply_map(region, us_data):
 
     # Then get the day of week of Jan 1 for each year. Monday is 0, Sunday 6
     jan_1_us = datetime.weekday(datetime.fromisoformat(f"{config.params['weather']['us']['year']}-01-01"))
-    jan_1_ca = datetime.weekday(datetime.fromisoformat(f"{config.params['base_year']}-01-01"))
+    jan_1_ca = datetime.weekday(datetime.fromisoformat(f"{config.params['weather_year']}-01-01"))
 
-    # Get multipliers for time of the week, hourly
+    # Get multipliers for time of the week, hourly -> this doesnt work as temperature effects are double counted
     daily_avg = np.array([np.mean(us_data[24*d:24*d+23]) for d in range(364)])
     weekly_avg = np.array([np.mean(us_data[7*24*w:7*24*w+7*24-1]) for w in range(52)])
     day_of_week = [np.mean(daily_avg[d:52*7:7]/weekly_avg) for d in range(7)]
@@ -141,7 +149,7 @@ def apply_map(region, us_data):
     tow_mults /= np.mean(tow_mults) # normalise
 
     # Apply time of week multipliers
-    ca_data *= tow_mults
+    #ca_data *= tow_mults
     
     # Return mapped data and time-of-week multipliers Mon -> Sun
     return ca_data, time_of_week_zeroed/np.mean(time_of_week_zeroed)
