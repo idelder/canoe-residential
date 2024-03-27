@@ -561,11 +561,12 @@ def aggregate_dsd():
 
             try:
                 for h in range(8760):
+                    # TODO this dumps 750 MB of note and reference data into the database
                     curs.execute(f"""REPLACE INTO
                                 DemandSpecificDistribution(regions, season_name, time_of_day_name, demand_name, dsd, dsd_notes,
                                 reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                                VALUES('{region}', '{config.time.loc[h, 'season']}', '{config.time.loc[h, 'time_of_day']}', '{demand_comm}', '{dsd[h]}', '',
-                                '', {us_year}, 3, 2, 1, {utils.dq_time(base_year, us_year)}, 3, 3)""")
+                                VALUES('{region}', '{config.time.loc[h, 'season']}', '{config.time.loc[h, 'time_of_day']}', '{demand_comm}', '{dsd[h]}', '{note}',
+                                '{reference}', {us_year}, 3, 2, 1, {utils.dq_time(base_year, us_year)}, 3, 3)""")
             except: pp.show()
 
         pp.tight_layout()
