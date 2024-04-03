@@ -11,8 +11,9 @@ model_periods:
   - 2045
   - 2050
 
-weather_year: 2018
+weather_year: 2018 # For normalised timeseries data only
 base_year: 2020 # Default year to pull data from
+timezone: 'Canada/Eastern'
 
 global_discount_rate: 0.05
 
@@ -108,13 +109,11 @@ resstock:
     'single attached': 'up10-<s>-single-family_attached.csv'
     'single detached': up10-<s>-single-family_detached.csv
   reference: 'NREL. (2021, October). ResStock-NREL (amy2018, v1.1, upgrade 10). https://data.openei.org/s3_viewer?bucket=oedi-data-lake&prefix=nrel-pds-building-stock%2Fend-use-load-profiles-for-us-building-stock%2F2022%2Fresstock_amy2018_release_1.1%2Ftimeseries_aggregates%2Fby_state%2Fupgrade%3D10%2F'
-  year: 2018
 
 weather:
-  us:
-    year: 2018
-    url: 'https://www.ncei.noaa.gov/data/global-hourly/access/<y>/<st>.csv'
-    reference: 'National Centers for Environmental Information. (<y>). Integrated Surface Dataset (Global). https://www.ncei.noaa.gov/access/search/data-search/global-hourly'
-  canada:
-    url: 'https://dd.weather.gc.ca/climate/observations/hourly/csv/<r>/climate_hourly_<r>_<st>_<y>_P1H.csv'
-    reference: 'Meteorological Services of Canada. (<y>). Hourly Climate Observations - Web Accessible Folder. https://dd.weather.gc.ca/climate/observations/hourly/csv/'
+  us_temperature_url: https://www.renewables.ninja/country_downloads/US/renewables_ninja_country_US_temperature_merra-2_pop-wtd.csv
+  us_humidity_url: https://www.renewables.ninja/country_downloads/US/renewables_ninja_country_US_humidity_merra-2_pop-wtd.csv
+  ca_temperature_url: https://www.renewables.ninja/country_downloads/CA/renewables_ninja_country_CA_temperature_merra-2_pop-wtd.csv
+  ca_humidity_url: https://www.renewables.ninja/country_downloads/CA/renewables_ninja_country_CA_humidity_merra-2_pop-wtd.csv
+  api_token: 'c9907cf9e649bff44ca013c6493d5aed6b6c3170'
+  reference: 'Staffell et al. (2023) https://doi.org/10.1038/s41560-023-01341-5 https://www.renewables.ninja/'

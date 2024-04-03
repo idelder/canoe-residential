@@ -479,10 +479,10 @@ def aggregate_dsd():
     ##############################################################
     """
 
-    us_year = config.params['weather']['us']['year']
+    weather_year = config.params['weather_year']
     reference = (f"{config.params['resstock']['reference']}; "
-                 f"{config.params['weather']['us']['reference'].replace('<y>', str(us_year))}; "
-                 f"{config.params['weather']['canada']['reference'].replace('<y>', str(base_year))}")
+                 f"{config.params['weather']['reference']}; "
+                 f"{config.params['nrcan_reference']}; ")
 
     res_config = pd.read_csv(config.input_files + 'resstock.csv', index_col=0)
     cons = dict() # 8760 hourly energy consumption by state, housing type, and end use, (kWh)
@@ -520,10 +520,9 @@ def aggregate_dsd():
         row = config.regions.loc[region]
         state = row['us_state']
 
-        note = (f"ResStock data for {state} (NREL, 2021) aggregated by end use and mapped to {us_year} air temperature "
-                f"and dew point temperature, taking the mean, from station {config.regions.loc[region, 'us_station']} (NCEI, {us_year}). "
-                f"Remapped to {base_year} {region} weather from station {config.regions.loc[region, 'ca_station']}, "
-                f"matching temperatures +-1°C and applying a diurnal adjustment as hour-of-day average divided by annual average. "
+        note = (f"ResStock data for {state} (NREL, 2021) disaggregated by end use and building archetype and mapped from {state} {weather_year} air temperature "
+                f"and humidity to {region} {weather_year} temperature and humidity, taking the mean of matched hours (Renewables Ninja, {weather_year}). "
+                f"Reaggregated for {base_year} existing stock of housing archetypes in {region} (NRCan, {base_year})"
                 f"Chronological linear interpolation for any missing data.")
 
         # Table 14: Total Households by Building Type and Energy Source
@@ -535,16 +534,15 @@ def aggregate_dsd():
         fig.suptitle(f"{region} demand specific distributions (blue). Weekly profile in red.")
 
         p = 0 # plot tracker
-        for end_use, row in config.end_use_demands.iterrows():
+        for end_use, eud_config in config.end_use_demands.iterrows():
 
-            demand_comm = row['comm']
+            demand_comm = eud_config['comm']
 
             # Consumption for each housing type times provincial stock of that housing type
             con_us = sum([t14[housing_type] * cons[state][housing_type][end_use] for housing_type in t14.index])
 
             # Map space heating, cooling to temperature and dew point temp (humidity). Note: this might introduce weather efficiency to the demand!
-            time_of_week = None
-            if row['use_weather_map']: con_ca, time_of_week = weather_mapping.map_data(region, con_us.to_numpy())
+            if eud_config['use_weather_map']: con_ca, time_of_week = weather_mapping.map_data(region, con_us.to_numpy())
             else: con_ca = con_us
 
             # Apply tolerance and normalise
@@ -555,7 +553,7 @@ def aggregate_dsd():
             row = p // 3  # Integer division to determine row
             col = p % 3   # Modulo to determine column
             axs[row, col].plot(dsd)
-            if time_of_week is not None: axs[row, col].twinx().plot(range(0,8736,52), time_of_week, 'r-') # time of week multipliers overlaid
+            if eud_config['use_weather_map']: axs[row, col].twinx().plot(range(0,8736,52), time_of_week, 'r-') # time of week multipliers overlaid
             axs[row, col].set_title(end_use)
             p+=1
 
@@ -566,7 +564,7 @@ def aggregate_dsd():
                                 DemandSpecificDistribution(regions, season_name, time_of_day_name, demand_name, dsd, dsd_notes,
                                 reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                                 VALUES('{region}', '{config.time.loc[h, 'season']}', '{config.time.loc[h, 'time_of_day']}', '{demand_comm}', '{dsd[h]}', '{note}',
-                                '{reference}', {us_year}, 3, 2, 1, {utils.dq_time(base_year, us_year)}, 3, 3)""")
+                                '{reference}', {weather_year}, 3, 2, 1, {utils.dq_time(base_year, weather_year)}, 3, 3)""")
             except: pp.show()
 
         pp.tight_layout()

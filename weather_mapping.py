@@ -2,17 +2,86 @@ import pandas as pd
 import numpy as np
 import utils
 import os
+import requests
+from io import StringIO
 from datetime import datetime
 from setup import config
 
 weather_maps = dict() # Maps that have already been loaded weather_maps[region] = 8760x8760 np array
 
+# Weather data
+initialised = False
+df_us_tmp: pd.DataFrame = None
+df_us_hum: pd.DataFrame = None
+df_ca_tmp: pd.DataFrame = None
+df_ca_hum: pd.DataFrame = None
+
+
+
+# Downloads temperature and humidity data from Renewables Ninja, but only caches weather-year data
+def get_weather_data(url: str) -> pd.DataFrame:
+
+    file_name = os.path.splitext(url.split("/")[-1].split("\\")[-1])[0] + f"_{config.params['weather_year']-1}-{config.params['weather_year']+1}.csv"
+
+    # Get from local cache if it exists
+    if os.path.isfile(config.cache_dir + file_name):
+
+        print(f"Got {file_name} from local cache.")
+
+        df = pd.read_csv(config.cache_dir + file_name, index_col=0)
+        df.index = pd.to_datetime(df.index)
+
+    else:
+
+        print(f"Downloading {file_name} from Renewables Ninja API...")
+
+        # Handle downloading data from Renewables Ninja API
+        s = requests.session()
+        s.headers = {'Authorization': 'Token ' + config.params['weather']['api_token']} # attach API token
+        r = s.get(url, params={'format': 'json'})
+        data = StringIO(r.text)
+        df = pd.read_csv(data, skiprows=3, index_col=0)
+
+        # Convert index to datetime index
+        df.index = pd.to_datetime(df.index)
+
+        # Filter to weather year data
+        df: pd.DataFrame = df.loc[(config.params['weather_year'] - 1 <= df.index.year) & (df.index.year <= config.params['weather_year'] + 1)]
+
+        # Cache dataframe locally as a csv
+        df.to_csv(config.cache_dir + file_name)
+
+    # Data is originally in UTC timezone so convert to model timezone
+    df.index = df.index.tz_localize('UTC')
+    df.index = df.index.tz_convert(config.params['timezone'])
+
+    # Filter to only 8760 of weather year
+    df = df.loc[df.index.year == config.params['weather_year']]
+
+    return df
+
+
+
+def initialise_weather_data():
+
+    global initialised, df_us_tmp, df_us_hum, df_ca_tmp, df_ca_hum
+
+    if initialised: return
+
+    # Get hourly weather data from Renewables Ninja
+    df_us_tmp = get_weather_data(config.params['weather']['us_temperature_url'])
+    df_us_hum = get_weather_data(config.params['weather']['us_humidity_url'])
+    df_ca_tmp = get_weather_data(config.params['weather']['ca_temperature_url'])
+    df_ca_hum = get_weather_data(config.params['weather']['ca_humidity_url'])
+
+    initialised = True
+
+
+
 def map_data(region: str, us_data: np.ndarray) -> tuple[pd.Series, np.ndarray]:
 
-    us_state = config.regions.loc[region, 'us_state']
-    us_station = str(config.regions.loc[region, 'us_station'])
-    ca_station = str(config.regions.loc[region, 'ca_station'])
-    map_file = f"weather_map_{us_state}_{us_station}-{region}_{ca_station}_{str(config.params['weather_year'])}.csv"
+    reg_config = config.regions.loc[region]
+    map_file = f"weather_map_{reg_config['us_state']}-{region}_{str(config.params['weather_year'])}.npz"
     
     # If the mapper already exists then just use it
     # Already loaded
@@ -20,101 +89,62 @@ def map_data(region: str, us_data: np.ndarray) -> tuple[pd.Series, np.ndarray]:
     # Load from local cache
     elif not config.params['force_generate_weather_maps'] and os.path.isfile(config.cache_dir + map_file):
         print(f"Loading weather map {map_file} from local cache...")
-        weather_maps[region] = np.loadtxt(config.cache_dir + map_file, dtype=float, delimiter=',')
+        with open(config.cache_dir + map_file, 'rb') as file:
+            weather_maps[region] = np.load(file)['arr_0']
         try:
             return apply_map(region, us_data)
         except Exception as e: # if failed regenerate the map
             print(f"Failed to apply weather map from local cache. Regenerating. Error:\n{e}")
-        
+    
     ## Otherwise generate the map
-    print(f"\nGenerating a weather-based data map from {us_state} to {region}...")
-
-    # Days in each month of the year. Need because of dodgy index
-    days_in_months = [31,28,31,30,31,30,31,31,30,31,30,31]
-
-    # Weather data from the US
-    df_us_wth = utils.get_data(
-        config.params['weather']['us']['url']
-        .replace('<st>', us_station)
-        .replace('<y>', str(config.params['weather']['us']['year']))
-        , name=f"climate_us_{us_state}_{us_station}_{str(config.params['weather']['us']['year'])}.csv"
-        , index_col=1, usecols=range(15)
-        )
-    df_us_wth = df_us_wth.loc[df_us_wth.index.str.contains('53')] # TODO This may not apply to all stations watch out
-    df_us = pd.DataFrame(index=range(8760))
-
-    # Clean up us station data
-    i=0
-    for m in range(12):
-        for d in range(days_in_months[m]):
-            for h in range(24):
-                ms = f"0{m+1}" if m+1 < 10 else str(m+1)
-                ds = f"0{d+1}" if d+1 < 10 else str(d+1)
-                hs = f"0{h}" if h < 10 else str(h)
-                idx = f"2018-{ms}-{ds}T{hs}:53:00" # TODO This may not apply to all stations watch out
-
-                for val in ['TMP','DEW']:
-                    if idx not in df_us_wth.index: v = pd.NA
-                    else:
-                        v = float(df_us_wth.loc[idx, val].split(',')[0])/10
-                        if v > 50: v = pd.NA
-                    df_us.loc[i, val] = v
-                # Including wind speed to potentially improve modelling
-                for val in ['WND']:
-                    if idx not in df_us_wth.index: v = pd.NA
-                    else:
-                        v = float(df_us_wth.loc[idx, val].split(',')[-2])/10
-                        if v > 500: v = pd.NA
-                    df_us.loc[i, val] = v
-
-                i+=1
-
-    # Fill in data gaps by chronological linear interpolation
-    for col in ['TMP','DEW','WND']: df_us[col].interpolate(method='linear', inplace=True)
-
-    # Canadian weather data
-    df_ca = utils.get_data(
-        config.params['weather']['canada']['url']
-        .replace('<st>', ca_station)
-        .replace('<r>', region)
-        .replace('<y>', str(config.params['weather_year']))
-        , encoding='unicode_escape', usecols=range(12)
-        ).iloc[0:8760]
+    print(f"\nGenerating a weather-based data map from {reg_config['us_state']} to {region}...")
 
     # A 2D matrix map of which US data points to use per Canadian datum
     weather_maps[region] = np.zeros((8760,8760))
 
+    # Get temperature and humidity data ready
+    initialise_weather_data()
+
+    # Get hourly temperature and humidity for this region
+    df_ca: pd.DataFrame = pd.concat([df_ca_tmp[reg_config['ca_rninja']], df_ca_hum[reg_config['ca_rninja']]], axis=1).astype(float)
+    df_us: pd.DataFrame = pd.concat([df_us_tmp[f"US.{reg_config['us_state']}"], df_us_hum[f"US.{reg_config['us_state']}"]], axis=1).astype(float)
+    df_ca.columns = ['temp','hum']
+    df_us.columns = ['temp','hum']
+
     unmatched = 0.0
-    for i, row in df_ca.iterrows():
+    for h in range(8760):
+
+        ca_row = df_ca.iloc[h]
 
         # For this datum, boolean vector of relevant data in US data vector
-        row_map = 1.0*np.array((row['Temp (°C)'] < df_us['TMP']+1) &
-            (row['Temp (°C)'] > df_us['TMP']-1) &
-            (row['Dew Point Temp (°C)'] > df_us['DEW']-1) &
-            (row['Dew Point Temp (°C)'] < df_us['DEW']+1)).transpose()
+        row_map = 1.0*np.array((ca_row['temp'] <= df_us['temp']+1) &
+            (ca_row['temp'] >= df_us['temp']-1) &
+            (ca_row['hum'] == df_us['hum'])).transpose()
         
         # If no match, maybe Canadian temps are hotter or (more likely) colder than all us temps
         if np.sum(row_map) == 0: # Did not find a match
             unmatched += 1
 
-            # Hotter than anything in US record so take highest US temp day
-            if row['Temp (°C)'] > np.max(df_us['TMP']) and row['Dew Point Temp (°C)'] > np.max(df_us['DEW']):
-                row_map = 1.0*np.array(df_us['TMP'] == np.max(df_us['TMP'])).transpose()
+            # Hotter than anything in US record so take hottest US hour
+            if ca_row['temp'] > np.max(df_us['temp']):
+                row_map = 1.0*np.array(df_us['temp'] == np.max(df_us['temp'])).transpose()
 
-            # Colder than anything in US record so take lowest US temp day 
-            elif row['Temp (°C)'] < np.min(df_us['TMP']) and row['Dew Point Temp (°C)'] < np.min(df_us['DEW']):
-                row_map = 1.0*np.array(df_us['TMP'] == np.min(df_us['TMP'])).transpose()
+            # Colder than anything in US record so take coldest US hour 
+            elif ca_row['temp'] < np.min(df_us['temp']):
+                row_map = 1.0*np.array(df_us['temp'] == np.min(df_us['temp'])).transpose()
         
         # Get the mean of relevant US data and or set NaN if no mappable hours -> will be interpolated
         row_map *= np.nan if np.sum(row_map) == 0 else 1 / np.sum(row_map)
 
         # Save these matrix maps per region to save having to repeat the above slow process
-        weather_maps[region][i,:] = row_map.copy()
+        weather_maps[region][h,:] = row_map.copy()
 
     print(f"{round((1-unmatched/8760)*100, 1)}% of hours found +-1C temperature match.")
 
     # Cache the generated weather map locally
-    np.savetxt(config.cache_dir + map_file, weather_maps[region], delimiter=',')
+    #np.savetxt(config.cache_dir + map_file, weather_maps[region], delimiter=',')
+    with open(config.cache_dir + map_file, 'wb') as file:
+        np.savez_compressed(file, weather_maps[region])
     print(f"Weather map generated and cached as {map_file}")
 
     return apply_map(region, us_data)
@@ -129,7 +159,7 @@ def apply_map(region: str, us_data: np.ndarray) -> tuple[pd.Series, np.ndarray]:
     ca_data = pd.Series(np.matmul(weather_maps[region], us_data)).interpolate(method='linear')
 
     # Then get the day of week of Jan 1 for each year. Monday is 0, Sunday 6
-    jan_1_us = datetime.weekday(datetime.fromisoformat(f"{config.params['weather']['us']['year']}-01-01"))
+    jan_1_us = datetime.weekday(datetime.fromisoformat(f"{config.params['weather_year']}-01-01"))
     jan_1_ca = datetime.weekday(datetime.fromisoformat(f"{config.params['weather_year']}-01-01"))
 
     # Get multipliers for time of the week, hourly -> this doesnt work as temperature effects are double counted
@@ -153,3 +183,8 @@ def apply_map(region: str, us_data: np.ndarray) -> tuple[pd.Series, np.ndarray]:
     
     # Return mapped data and time-of-week multipliers Mon -> Sun
     return ca_data, time_of_week_zeroed/np.mean(time_of_week_zeroed)
+
+
+if __name__ == "__main__":
+
+    initialise_weather_data()

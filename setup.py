@@ -127,6 +127,8 @@ class config:
 
         # For each region, take historical first, then provincial, then index to Canadian when that runs out
         for region, row in config.regions.iterrows():
+
+            if not row ['include']: continue
             
             # Existing data
             exs = df_exs.loc[df_exs['GEO'].str.upper() == row['description'].upper()].dropna()

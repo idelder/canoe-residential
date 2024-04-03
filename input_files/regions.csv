@@ -1,7 +1,11 @@
-﻿region,description,include,us_census_div,us_state,us_station,ca_station
-ON,ontario,TRUE,3,MI,72537514822,6158359
-AB,alberta,FALSE,8,MT,72677024033,3031092
-BC,british columbia,FALSE,9,WA,72793524234,1108395
-QC,quebec,FALSE,1,ME,72607014606,7025251
-MB,manitoba,FALSE,4,ND,72753014914,5023227
-SK,saskatchewan,FALSE,4,ND,72753014914,4057152
+﻿region,description,include,utc_offset,nrcan_id,ca_rninja,us_state,us_census_div
+ON,ontario,TRUE,-5,ON,CA.ON,MI,3
+AB,alberta,TRUE,-7,AB,CA.AB,MT,8
+BC,british columbia,FALSE,-8,BC,CA.BC,WA,9
+QC,quebec,FALSE,-5,QC,CA.QC,ME,1
+MB,manitoba,FALSE,-6,MB,CA.MB,ND,4
+SK,saskatchewan,FALSE,-6,SK,CA.SK,ND,4
+NLLAB,newfoundland and labrador,FALSE,-3.5,NL,CA.NF,ME,1
+PEI,prince edward island,FALSE,-4,PE,CA.PE,ME,1
+NS,nova scotia,FALSE,-4,NS,CA.NS,ME,1
+NB,new brunswick,FALSE,-4,NB,CA.NB,ME,1
