@@ -77,23 +77,16 @@ def prep_high_res_testing():
     }
                 
     rep_days = [
-        'D001',
-        'D009',
+        'D006', # Coldest day ON 2018
         'D045', # Coldest day ON 2020
         'D103',
         'D128',
         'D173',
-        'D184' # Hottest day ON 2020
+        'D186' # Hottest day ON 2018
     ]
 
     seas_tables = [
         'DemandSpecificDistribution'
-    ]
-
-    cost_tables = [
-        'Cost_Invest',
-        'Cost_Fixed',
-        'Cost_Variable'
     ]
 
     # Delete all days but rep days above
@@ -107,7 +100,7 @@ def prep_high_res_testing():
     for day in rep_days:
         for h in range(24):
             curs.execute(f"""REPLACE INTO SegFrac(season_name, time_of_day_name, segfrac)
-                        VALUES('{day}', '{config.time.loc[h, 'time_of_day']}', {1/(24*7)})""")
+                        VALUES('{day}', '{config.time.loc[h, 'time_of_day']}', {1/(24*6)})""")
             
     # Renormalise dsd
     for end_use in config.end_use_demands['comm']:
@@ -122,21 +115,19 @@ def prep_high_res_testing():
     for fuel, cost in fuel_costs.items():
             for period in config.model_periods:
                 curs.execute(f"""REPLACE INTO
-                            CostVariable(regions, periods, tech, vintage, data_cost_variable, data_cost_year, data_curr, data_flags)
-                            VALUES('{region}', {period}, 'R_IMP_{fuel}', {config.model_periods[0]}, {cost}, 2020, 'CAD', 'TEST')""")
+                            CostVariable(regions, periods, tech, vintage, cost_variable, cost_variable_units, data_cost_year, data_curr, data_flags)
+                            VALUES('{region}', {period}, 'R_IMP_{fuel}', {config.model_periods[0]}, {cost}, 'TEST VAL M$/PJ', 2020, 'CAD', 'TEST')""")
 
     for region in config.model_regions:
         for period in config.model_periods:
             curs.execute(f"""REPLACE INTO
                         EmissionLimit(regions, periods, emis_comm, emis_limit, emis_limit_units)
                         VALUES('{region}', {period}, "CO2eq", {emis[period]*base_emis[region]}, "ktCO2eq")""")
-
-    for table in cost_tables:
-        curs.execute(f"""UPDATE {table.replace('_','')}
-                    SET {table.lower()} = data_{table.lower()}""")
         
     conn.commit()
     conn.close()
+
+    print("Finished.")
 
 
 

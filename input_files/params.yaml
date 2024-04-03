@@ -56,7 +56,8 @@ statcan_reference: "Statistics Canada, (2022, August 22). Projected population, 
 statcan_data_year: 2022
 
 epa_reference: "US EPA. (2023, March). GHG Emission Factors Hub [Overviews and Factsheets]. https://www.epa.gov/climateleadership/ghg-emission-factors-hub"
-epa_year: 2023
+epa_year: 2024 # Check if GWP factors have changed and update below
+epa_url: 'https://www.epa.gov/system/files/documents/2024-02/ghg-emission-factors-hub-2024.xlsx'
 emission_commodity: 'CO2eq'
 emission_activity_units: 'ktCO2eq/PJ'
 
@@ -67,8 +68,8 @@ conversion_factors:
     'N2O': 0.000948 # g/MMBtu to kt/PJ
   gwp:
     'CO2': 1 # to CO2eq 100y GWP
-    'CH4': 25 # to CO2eq 100y GWP
-    'N2O': 298 # to CO2eq 100y GWP
+    'CH4': 28 # to CO2eq 100y GWP
+    'N2O': 265 # to CO2eq 100y GWP
   efficiency:
     'EER': 0.293 # kBtu/kWh to PJ/PJ
   lighting:
@@ -77,6 +78,9 @@ conversion_factors:
     'cost': 1 # $/klm(y) to M$/Glm(y)
   activity:
     'kwh': 3.6e-9 # kWh to PJ
+  cost:
+    'invest': 0.001 # $/unit to M$/kunit
+    'fixed': 0.001 # $/unit.y to M$/kunit.y
 
 furnace_fans:
   output_split: 0.0205 # PJ elc in / PJ heat out, from 6 kWh/MMBtu

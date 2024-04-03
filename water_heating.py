@@ -62,7 +62,7 @@ def aggregate_region(region):
 
         # Write single fuel efficiencies to database
         for vint in config.tech_vints[tech]:
-            if vint + config.lifetimes[tech] <= config.model_periods[0]: continue
+            if vint + config.lifetimes[row['aeo_class']] <= config.model_periods[0]: continue
 
             curs.execute(f"""REPLACE INTO
                 Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
@@ -132,7 +132,7 @@ def aggregate_region(region):
 
         # Write existing capacities to database
         for vint in vints:
-            if vint + config.lifetimes[tech] <= config.model_periods[0]: continue
+            if vint + config.lifetimes[row['aeo_class']] <= config.model_periods[0]: continue
 
             curs.execute(f"""REPLACE INTO
                         ExistingCapacity(regions, tech, vintage, exist_cap, exist_cap_units, exist_cap_notes,
@@ -153,7 +153,7 @@ def aggregate_region(region):
         acf = act / (existing_cap * c2a)
 
         for period in config.model_periods:
-            if max(vints) + config.lifetimes[tech] <= period: continue
+            if max(vints) + config.lifetimes[row['aeo_class']] <= period: continue
             
             curs.execute(f"""REPLACE INTO
                             MinAnnualCapacityFactor(regions, periods, tech, output_comm, min_acf, min_acf_notes,

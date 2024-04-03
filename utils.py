@@ -181,15 +181,19 @@ def dq_time(from_year, to_year):
 
 def stock_vintages(stock_year, lifetime, vint_interval=config.params['period_step']) -> tuple[list, list]:
 
-    vint_0 = stock_year - stock_year % vint_interval # first stepped back vint
+    vint_last = stock_year - stock_year % vint_interval # first stepped back vint
 
     # Return any stepped back vintages that are feasible
-    vints = list(range(int(vint_0), int(stock_year-lifetime), -int(vint_interval)))
+    vints = list(range(int(vint_last), int(stock_year-lifetime), -int(vint_interval)))
     vints.sort()
 
     if stock_year not in vints: vints.append(stock_year)
     
+    # Only one vintage so all weight in there
     if len(vints) == 1: weights = [1]
+    # Stock year lands on a stepped vintage so divide evenly
+    elif stock_year == vint_last: weights = [1 / len(vints)] * len(vints)
+    # Stock year is after last stepped vintage so give it a lesser weighting proportional to time interval
     else: weights = [vint_interval / (vints[-1]-vints[0])] * (len(vints) - 1) + [stock_year%vint_interval / (vints[-1]-vints[0])]
 
     return vints, weights

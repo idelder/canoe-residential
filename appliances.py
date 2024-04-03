@@ -59,7 +59,7 @@ def aggregate_region(region):
 
         for period in config.model_periods:
             if row['end_use'] == 'appliances other': continue # no capacity expansion so does not apply
-            if max(config.tech_vints[tech]) + config.lifetimes[tech] <= period: continue
+            if max(config.tech_vints[tech]) + config.lifetimes[row['aeo_class']] <= period: continue
 
             curs.execute(f"""REPLACE INTO
                             MinAnnualCapacityFactor(regions, periods, tech, output_comm, min_acf, min_acf_notes, dq_est)
@@ -104,7 +104,7 @@ def aggregate_region(region):
 
         # Write existing capacities to database
         for vint in vints:
-            if vint + config.lifetimes[tech] <= config.model_periods[0]: continue
+            if vint + config.lifetimes[row['aeo_class']] <= config.model_periods[0]: continue
 
             curs.execute(f"""REPLACE INTO
                         ExistingCapacity(regions, tech, vintage, exist_cap, exist_cap_units, exist_cap_notes,
@@ -164,7 +164,7 @@ def aggregate_region(region):
         ## Existing Efficiency
         for vint in vints:
             if row['end_use'] != 'appliances other': # appliances other has no lifetime
-                if vint + config.lifetimes[tech] <= config.model_periods[0]: continue
+                if vint + config.lifetimes[row['aeo_class']] <= config.model_periods[0]: continue
 
             curs.execute(f"""REPLACE INTO
                     Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
@@ -208,7 +208,7 @@ def aggregate_region(region):
 
             ## Existing Efficiency
             for vint in vints:
-                if vint + config.lifetimes[techs[f]] <= config.model_periods[0]: continue
+                if vint + config.lifetimes[nrcan_techs.loc[techs[f],'aeo_class']] <= config.model_periods[0]: continue
                 
                 curs.execute(f"""REPLACE INTO
                         Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
@@ -231,6 +231,7 @@ def aggregate_region(region):
 
     for tech, row in aeo_techs.iterrows():
         if 'appliances' not in row['end_uses']: continue
+        if not row['include_new']: continue
 
         # Relevant to this tech
         df1 = df0.loc[row['aeo_equip']]

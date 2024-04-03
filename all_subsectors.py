@@ -37,7 +37,7 @@ def aggregate():
 
     print("Aggregating sub-sector data...\n")
 
-    pre_aggregate()
+    pre_process()
     
     ## Aggregate subsectors
     space_heating.aggregate()
@@ -50,7 +50,7 @@ def aggregate():
     if config.params['include_emissions']: aggregate_emissions()
     if config.params['include_imports']: aggregate_imports()
 
-    post_aggregate()
+    post_process()
 
     cleanup()
 
@@ -59,7 +59,7 @@ def aggregate():
 
 
 # For non-regional aggregation
-def pre_aggregate():
+def pre_process():
 
     # Connect to the new database file
     conn = sqlite3.connect(config.database_file)
@@ -134,17 +134,10 @@ def pre_aggregate():
     """
 
     ##############################################################
-    # AEO data (new)
+    # Lifetimes
     ##############################################################
 
-    for tech, row in aeo_techs.iterrows():
-        
-        tech_desc = f"{row.loc['end_uses']} - {row.loc['description']}"
-        curs.execute(f"""REPLACE INTO
-                        technologies(tech, flag, sector, tech_desc, reference)
-                        VALUES('{tech}', 'p', 'residential', '{tech_desc}', '{aeo_ref}')""")
-
-        aeo_class = row.loc['aeo_class']
+    for aeo_class in aeo_res_class.index:
 
         # Get lifetime from mean of weibull distribution
         weibull_k = aeo_res_class.loc[aeo_class, 'Weibull K']
@@ -154,10 +147,25 @@ def pre_aggregate():
         if type(weibull_k) is pd.Series: weibull_k = weibull_k.iloc[0]
         if type(weibull_l) is pd.Series: weibull_l = weibull_l.iloc[0]
 
+        # Calculate lifetime and add to lifetimes dictionary
         lifetime = round(weibull_l * gamma(1 + 1/weibull_k)) # mean of weibull distribution
+        config.lifetimes[aeo_class] = lifetime
 
-        # Add lifetimes and feasible vintages to config dictionaries
-        config.lifetimes[tech] = lifetime
+
+    ##############################################################
+    # AEO data (new)
+    ##############################################################
+
+    for tech, row in aeo_techs.iterrows():
+
+        if not row['include_new']: continue
+        
+        tech_desc = f"{row.loc['end_uses']} - {row.loc['description']}"
+        curs.execute(f"""REPLACE INTO
+                        technologies(tech, flag, sector, tech_desc, reference)
+                        VALUES('{tech}', 'p', 'residential', '{tech_desc}', '{aeo_ref}')""")
+
+        # Add future vintages to vintage dictionary
         config.tech_vints[tech] = config.model_periods
 
 
@@ -174,15 +182,10 @@ def pre_aggregate():
 
         # Get equivalent future tech
         aeo_class = row.loc['aeo_class']
-        if pd.isna(aeo_class): continue
-
-        # Lifetime from equivalent AEO tech
-        equiv_tech = aeo_techs.loc[aeo_techs['aeo_class']==aeo_class].index.values[0]
-        lifetime = config.lifetimes[equiv_tech]
+        if pd.isna(aeo_class): continue # should only apply to appliances other
 
         # Add lifetimes and feasible vintages to config dictionaries
-        config.lifetimes[tech] = lifetime
-        exs_vints, _weights = utils.stock_vintages(base_year, lifetime)
+        exs_vints, _weights = utils.stock_vintages(base_year, config.lifetimes[aeo_class])
         config.tech_vints[tech] = exs_vints
 
 
@@ -224,11 +227,13 @@ def pre_aggregate_region(region):
     # All technologies from aeo technologies input csv
     for tech, row in aeo_techs.iterrows():
 
+        if not row['include_new']: continue
+
         aeo_class = row['aeo_class']
         aeo_equip = row['aeo_equip']
 
         in_comm = fuel_commodities.loc[row['fuel'], 'comm']
-        lifetime = config.lifetimes[tech]
+        lifetime = config.lifetimes[aeo_class]
 
         ## LifetimeTech
         note = '(y) Average of Weibull distribution.'
@@ -244,34 +249,46 @@ def pre_aggregate_region(region):
         end_uses = row.loc['end_uses'].split("+")
         end_use_ids = row.loc['end_use_ids'].split("+")
 
+        cap_unit = end_use_demands.loc[end_uses[0], 'cap_unit']
+
         # All future periods are valid vintages
         for vint in config.tech_vints[tech]:
             
             if type(df1) is pd.DataFrame:
                 df2 = df1.loc[(df1['First Year']<=vint) & (vint<=df1['Last Year'])]
-                cost_invest = df2.loc[df2['New Construction Cost'] != 0]['New Construction Cost'].iloc[0]
+                cost_invest = df2.loc[df2['Replacement Cost'] != 0]['Replacement Cost'].iloc[0]
             elif type(df1) is pd.Series:
                 df2 = df1 # only one row remaining
-                cost_invest = df2['New Construction Cost']
+                cost_invest = df2['Replacement Cost']
+            
+            # AEO table splits heat pump costs between heating and cooling, annoyingly
+            if row.loc['end_uses'] == 'space heating+space cooling': cost_invest *= 2
+
 
             ## CostInvest
+            cost_invest *= config.params['conversion_factors']['cost']['invest']
+
             curs.execute(f"""REPLACE INTO
-                        CostInvest(regions, tech, vintage, data_cost_invest, data_cost_year, data_curr,
+                        CostInvest(regions, tech, vintage, cost_invest_units, data_cost_invest, data_cost_year, data_curr,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{tech}', {vint}, {cost_invest}, {curr_year}, '{curr}',
+                        VALUES('{region}', '{tech}', {vint}, '(M$/{cap_unit})', {cost_invest}, {curr_year}, '{curr}',
                         '{aeo_ref}', {aeo_year}, 1, 1, 1, 1, 3, 1)""")
             
+
             ## CostFixed
             cost_fixed = row['cost_fixed']
+
+            cost_fixed *= config.params['conversion_factors']['cost']['fixed']
+
             if cost_fixed != 0:
                 for period in config.model_periods:
 
                     if period < vint or vint + lifetime <= period: continue
 
                     curs.execute(f"""REPLACE INTO
-                                CostFixed(regions, periods, tech, vintage, data_cost_fixed, data_cost_year, data_curr,
+                                CostFixed(regions, periods, tech, vintage, cost_fixed_units, data_cost_fixed, data_cost_year, data_curr,
                                 reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                                VALUES('{region}', {period}, '{tech}', {vint}, {cost_fixed}, {curr_year}, '{curr}',
+                                VALUES('{region}', {period}, '{tech}', {vint}, '(M$/{cap_unit}.y)', {cost_fixed}, {curr_year}, '{curr}',
                                 '{aeo_ref}', {aeo_year}, 1, 1, 1, 1, 3, 1)""")
 
 
@@ -306,15 +323,17 @@ def pre_aggregate_region(region):
         
         ## CostFixed from aeo equivalent tech
         aeo_class = row['aeo_class']
-        if pd.isna(aeo_class): continue
+        if pd.isna(aeo_class): continue # should only apply to appliances other
 
         equiv_tech = aeo_techs.loc[aeo_techs['aeo_class']==aeo_class].index.values[0]
         cost_fixed = aeo_techs.loc[equiv_tech, 'cost_fixed']
 
         note = f"Assumed same as {equiv_tech}."
 
+
+        ## Lifetime
         # Doing this by region so that some regions can be skipped at aggregation phase
-        lifetime = config.lifetimes[tech]
+        lifetime = config.lifetimes[aeo_class]
 
         curs.execute(f"""REPLACE INTO
                     LifetimeTech(regions, tech, life, life_notes,
@@ -322,16 +341,21 @@ def pre_aggregate_region(region):
                     VALUES('{region}', '{tech}', {lifetime}, '{note}',
                     '{aeo_ref}', {aeo_year}, 2, 1, 1, 1, 1, 2)""")
         
+
+        ## CostFixed
         if cost_fixed == 0: continue
+
+        cost_fixed *= config.params['conversion_factors']['cost']['fixed']
+
         for vint in config.tech_vints[tech]:
             for period in config.model_periods:
                 
                 if period < vint or vint + lifetime <= period: continue
 
                 curs.execute(f"""REPLACE INTO
-                            CostFixed(regions, periods, tech, vintage, cost_fixed_notes, data_cost_fixed, data_cost_year, data_curr,
+                            CostFixed(regions, periods, tech, vintage, cost_fixed_units, cost_fixed_notes, data_cost_fixed, data_cost_year, data_curr,
                             reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                            VALUES('{region}', {period}, '{tech}', {vint}, '{note}', {aeo_techs.loc[equiv_tech, 'cost_fixed']}, {curr_year}, '{curr}',
+                            VALUES('{region}', {period}, '{tech}', {vint}, '(M$/{cap_unit}.y)', '{note}', {aeo_techs.loc[equiv_tech, 'cost_fixed']}, {curr_year}, '{curr}',
                             '{aeo_ref}', {aeo_year}, 2, 1, 1, 1, 3, 3)""")
     
     """
@@ -360,6 +384,9 @@ def pre_aggregate_region(region):
 
     ## AEO future stock
     for tech, row in aeo_techs.iterrows():
+
+        if not row['include_new']: continue
+
         end_uses = row['end_uses'].split('+')
 
         c2a = end_use_demands.loc[end_uses[0], 'c2a'] # Must be the same for all end uses anyway
@@ -375,9 +402,9 @@ def pre_aggregate_region(region):
 
 
 # For non-regional post-subsector aggregation
-def post_aggregate():
+def post_process():
 
-    for region in config.model_regions: post_aggregate_region(region)
+    for region in config.model_regions: post_process_region(region)
 
     # Connect to the new database file
     conn = sqlite3.connect(config.database_file)
@@ -402,14 +429,12 @@ def post_aggregate():
     conn.commit()
     conn.close()
 
-    for region in config.model_regions: post_aggregate_region(region)
-
-    print(f"Post aggregation complete.\n")
+    print(f"Post-aggregation complete.\n")
 
 
 
 # For regional post-subsector aggregation
-def post_aggregate_region(region):
+def post_process_region(region):
 
     # Connect to the new database file
     conn = sqlite3.connect(config.database_file)
@@ -426,6 +451,9 @@ def post_aggregate_region(region):
     ## AEO future stock
     # Copy from NRCan existing stock    
     for tech, row in aeo_techs.iterrows():
+
+        if not row['include_new']: continue
+
         if pd.isna(row['nrcan_equiv']):
             print(f"{tech} has no specific NRCan equivalent and so will have no annual capacity factor.")
             continue # no NRCan equivalent given
@@ -594,9 +622,10 @@ def aggregate_emissions():
     emis_units = config.params['emission_activity_units']
 
     # Get emissions factors for fuels in ktCO2eq/PJ_in
-    emis_fact = pd.read_excel(config.input_files+"/ghg-emission-factors-hub.xlsx", skiprows=13, nrows=76, index_col=2)[['CO2 Factor', 'CH4 Factor', 'N2O Factor']].iloc[1::].dropna()
-    emis_fact = emis_fact[pd.to_numeric(emis_fact['CO2 Factor'], errors='coerce').notnull()]
-    for fact in emis_fact.columns: emis_fact[fact] *= conversion_factors['epa_units'][fact.strip(' Factor')] * conversion_factors['gwp'][fact.strip(' Factor')]
+    emis_fact = utils.get_data('https://www.epa.gov/system/files/documents/2024-02/ghg-emission-factors-hub-2024.xlsx', skiprows=14, nrows=76, index_col=2)
+    emis_fact = emis_fact[['CO2 Factor', 'CH4 Factor', 'N2O Factor']].iloc[1::].dropna()
+    emis_fact = emis_fact[pd.to_numeric(emis_fact['CO2 Factor'], errors='coerce').notnull()] # Removing NaN rows
+    for fact in emis_fact.columns: emis_fact[fact] = emis_fact[fact].astype(float) * conversion_factors['epa_units'][fact.strip(' Factor')] * conversion_factors['gwp'][fact.strip(' Factor')]
     emis_fact[emis_comm] = emis_fact.sum(axis=1)
 
     for tech in config.all_techs:
@@ -671,7 +700,6 @@ def cleanup():
     # Connect to the new database file
     conn = sqlite3.connect(config.database_file)
     curs = conn.cursor() # Cursor object interacts with the sqlite db
-
 
 
     """

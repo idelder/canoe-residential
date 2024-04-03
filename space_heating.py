@@ -125,7 +125,7 @@ def aggregate_region(region):
 
                 # Write dual fuel efficiencies to database
                 for vint in config.tech_vints[tech]:
-                    if vint + config.lifetimes[tech] <= config.model_periods[0]: continue
+                    if vint + config.lifetimes[row['aeo_class']] <= config.model_periods[0]: continue
 
                     curs.execute(f"""REPLACE INTO
                         Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
@@ -160,7 +160,7 @@ def aggregate_region(region):
 
         # Write single fuel efficiencies to database
         for vint in config.tech_vints[tech]:
-            if vint + config.lifetimes[tech] <= config.model_periods[0]: continue
+            if vint + config.lifetimes[row['aeo_class']] <= config.model_periods[0]: continue
             
             curs.execute(f"""REPLACE INTO
                 Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
@@ -198,7 +198,7 @@ def aggregate_region(region):
         existing_cap = sum([t21_stk.loc[substock, base_year] for substock in substocks])
         
         # Distribute existing capacities evenly over feasible vintages
-        vints, weights = utils.stock_vintages(base_year, config.lifetimes[tech])
+        vints, weights = utils.stock_vintages(base_year, config.lifetimes[row['aeo_class']])
         
         # Write existing capacities to database
         for v in range(len(vints)):
@@ -206,7 +206,7 @@ def aggregate_region(region):
             vint = vints[v]
             weight = weights[v]
 
-            if vint + config.lifetimes[tech] <= config.model_periods[0]: continue
+            if vint + config.lifetimes[row['aeo_class']] <= config.model_periods[0]: continue
 
             exs_cap = existing_cap * weight
 
@@ -229,7 +229,7 @@ def aggregate_region(region):
         acf = act / (existing_cap * c2a)
 
         for period in config.model_periods:
-            if max(vints) + config.lifetimes[tech] <= period: continue
+            if max(vints) + config.lifetimes[row['aeo_class']] <= period: continue
 
             curs.execute(f"""REPLACE INTO
                             MinAnnualCapacityFactor(regions, periods, tech, output_comm, min_acf, min_acf_notes,
@@ -270,17 +270,28 @@ def aggregate_furnace_fans(region):
 
     # Get technologies that need furnace fan consumption (fan tag in AEO data and space heating end use)
     fan_classes = config.aeo_res_class.loc[config.aeo_res_class['Furnace Fan Flag']==1].index.unique()
-    fan_techs = [*config.nrcan_techs.loc[(config.nrcan_techs['aeo_class'].isin(fan_classes)) & (config.nrcan_techs['end_use'] == 'space heating')].index.values,
-                 *config.aeo_techs.loc[(config.aeo_techs['aeo_class'].isin(fan_classes)) & (config.aeo_techs['end_uses'].str.contains('space heating'))].index.values]
+    fan_techs = [
+        *config.nrcan_techs.loc[
+            (config.nrcan_techs['aeo_class'].isin(fan_classes))
+            & (config.nrcan_techs['end_use'] == 'space heating')
+        ].index.values,
+        *config.aeo_techs.loc[
+            (config.aeo_techs['aeo_class'].isin(fan_classes))
+            & (config.aeo_techs['end_uses'].str.contains('space heating'))
+            & (config.aeo_techs['include_new'])
+        ].index.values
+    ]
 
     for tech in fan_techs:
         
         vints = config.tech_vints[tech]
+        if tech in nrcan_techs.index: life = config.lifetimes[nrcan_techs.loc[tech, 'aeo_class']]
+        else: life = config.lifetimes[config.aeo_techs.loc[tech, 'aeo_class']]
 
         # Add a dummy process to convert input fan electricity to worthless dummy commodity
         # 100% efficiency so TechOutputSplit can be used
         for vint in vints:
-            if vint + config.lifetimes[tech] <= config.model_periods[0]: continue
+            if vint + life <= config.model_periods[0]: continue
 
             curs.execute(f"""REPLACE INTO
                     Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes, dq_est)
@@ -289,7 +300,7 @@ def aggregate_furnace_fans(region):
         
         # Set ratio of fan electricity consumption to output heat
         for period in config.model_periods:
-            if max(vints) + config.lifetimes[tech] <= period: continue
+            if max(vints) + life <= period: continue
 
             curs.execute(f"""REPLACE INTO
                     TechOutputSplit(regions, periods, tech, output_comm, to_split, to_split_notes,
