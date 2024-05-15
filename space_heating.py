@@ -16,7 +16,7 @@ nrcan_ref = config.params['nrcan_reference']
 statcan_year = config.params['statcan_data_year']
 statcan_ref = config.params['statcan_reference']
 fuel_commodities = config.fuel_commodities
-nrcan_techs = config.nrcan_techs
+nrcan_techs = config.existing_techs
 space_heating = config.end_use_demands.loc['space heating']
 
 
@@ -93,7 +93,7 @@ def aggregate_region(region):
     """
 
     tracker = dict() # tracking multiples of the same nrcan fuel type
-    for tech, row in config.nrcan_techs.iterrows():
+    for tech, row in config.existing_techs.iterrows():
         if row['end_use'] != 'space heating': continue
 
         # Get the NRCan nomenclature of the tech
@@ -271,14 +271,14 @@ def aggregate_furnace_fans(region):
     # Get technologies that need furnace fan consumption (fan tag in AEO data and space heating end use)
     fan_classes = config.aeo_res_class.loc[config.aeo_res_class['Furnace Fan Flag']==1].index.unique()
     fan_techs = [
-        *config.nrcan_techs.loc[
-            (config.nrcan_techs['aeo_class'].isin(fan_classes))
-            & (config.nrcan_techs['end_use'] == 'space heating')
+        *config.existing_techs.loc[
+            (config.existing_techs['aeo_class'].isin(fan_classes))
+            & (config.existing_techs['end_use'] == 'space heating')
         ].index.values,
-        *config.aeo_techs.loc[
-            (config.aeo_techs['aeo_class'].isin(fan_classes))
-            & (config.aeo_techs['end_uses'].str.contains('space heating'))
-            & (config.aeo_techs['include_new'])
+        *config.new_techs.loc[
+            (config.new_techs['aeo_class'].isin(fan_classes))
+            & (config.new_techs['end_uses'].str.contains('space heating'))
+            & (config.new_techs['include_new'])
         ].index.values
     ]
 
@@ -286,7 +286,7 @@ def aggregate_furnace_fans(region):
         
         vints = config.tech_vints[tech]
         if tech in nrcan_techs.index: life = config.lifetimes[nrcan_techs.loc[tech, 'aeo_class']]
-        else: life = config.lifetimes[config.aeo_techs.loc[tech, 'aeo_class']]
+        else: life = config.lifetimes[config.new_techs.loc[tech, 'aeo_class']]
 
         # Add a dummy process to convert input fan electricity to worthless dummy commodity
         # 100% efficiency so TechOutputSplit can be used

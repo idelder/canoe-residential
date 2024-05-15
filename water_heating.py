@@ -16,8 +16,8 @@ aeo_ref = config.params['aeo_reference']
 statcan_year = config.params['statcan_data_year']
 statcan_ref = config.params['statcan_reference']
 fuel_commodities = config.fuel_commodities
-nrcan_techs = config.nrcan_techs
-aeo_techs = config.aeo_techs
+nrcan_techs = config.existing_techs
+aeo_techs = config.new_techs
 aeo_res_class = config.aeo_res_class
 aeo_res_equip = config.aeo_res_equip
 water_heating = config.end_use_demands.loc['water heating']
@@ -48,7 +48,7 @@ def aggregate_region(region):
 
     stock_effs = dict() # track efficiencies by nrcan stock
 
-    for tech, row in config.nrcan_techs.iterrows():
+    for tech, row in config.existing_techs.iterrows():
         if row['end_use'] != 'water heating': continue
 
         # Input commodity
@@ -137,7 +137,7 @@ def aggregate_region(region):
             curs.execute(f"""REPLACE INTO
                         ExistingCapacity(regions, tech, vintage, exist_cap, exist_cap_units, exist_cap_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{tech}', {vint}, {existing_cap / len(vints)}, '(Munit)', '{note}',
+                        VALUES('{region}', '{tech}', {vint}, {existing_cap / len(vints)}, '(kunit)', '{note}',
                         '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(config.model_periods[0], base_year)}, 1, 1)""")
         
 

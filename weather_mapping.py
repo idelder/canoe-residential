@@ -21,7 +21,7 @@ df_ca_hum: pd.DataFrame = None
 # Downloads temperature and humidity data from Renewables Ninja, but only caches weather-year data
 def get_weather_data(url: str) -> pd.DataFrame:
 
-    file_name = os.path.splitext(url.split("/")[-1].split("\\")[-1])[0] + f"_{config.params['weather_year']-1}-{config.params['weather_year']+1}.csv"
+    file_name = os.path.splitext(url.split("/")[-1].split("\\")[-1])[0] + f"_{config.params['weather_year']}.csv"
 
     # Get from local cache if it exists
     if os.path.isfile(config.cache_dir + file_name):
@@ -46,17 +46,13 @@ def get_weather_data(url: str) -> pd.DataFrame:
         df.index = pd.to_datetime(df.index)
 
         # Filter to weather year data
-        df: pd.DataFrame = df.loc[(config.params['weather_year'] - 1 <= df.index.year) & (df.index.year <= config.params['weather_year'] + 1)]
+        df: pd.DataFrame = df.loc[df.index.year == config.params['weather_year']]
 
         # Cache dataframe locally as a csv
         df.to_csv(config.cache_dir + file_name)
 
     # Data is originally in UTC timezone so convert to model timezone
-    df.index = df.index.tz_localize('UTC')
-    df.index = df.index.tz_convert(config.params['timezone'])
-
-    # Filter to only 8760 of weather year
-    df = df.loc[df.index.year == config.params['weather_year']]
+    df = utils.realign_timezone(df, from_timezone='UTC')
 
     return df
 

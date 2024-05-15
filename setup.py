@@ -46,6 +46,8 @@ class config:
     input_files = _this_dir + 'input_files/'
     cache_dir = _this_dir + "data_cache/"
 
+    if not os.path.exists(cache_dir): os.mkdir(cache_dir)
+
     tech_vints = {}
     lifetimes = {}
 
@@ -72,15 +74,15 @@ class config:
         stream = open(config.input_files + "params.yaml", 'r')
         config.params = dict(yaml.load(stream, Loader=yaml.Loader))
 
-        config.aeo_techs = pd.read_csv(config.input_files + 'aeo_technologies.csv', index_col=0)
-        config.nrcan_techs = pd.read_csv(config.input_files + 'nrcan_technologies.csv', index_col=0)
+        config.new_techs = pd.read_csv(config.input_files + 'new_technologies.csv', index_col=0)
+        config.existing_techs = pd.read_csv(config.input_files + 'existing_technologies.csv', index_col=0)
         config.import_techs = pd.read_csv(config.input_files + 'import_technologies.csv', index_col=0)
         config.regions = pd.read_csv(config.input_files + 'regions.csv', index_col=0)
         config.fuel_commodities = pd.read_csv(config.input_files + 'fuel_commodities.csv', index_col=0)
         config.end_use_demands = pd.read_csv(config.input_files + 'end_use_demands.csv', index_col=0)
         config.time = pd.read_csv(config.input_files + 'time.csv', index_col=0)
 
-        config.all_techs = [*config.aeo_techs.index.values, *config.nrcan_techs.index.values]
+        config.all_techs = [*config.new_techs.index.values, *config.existing_techs.index.values]
 
         # Included regions and future periods
         config.model_periods = list(config.params['model_periods'])

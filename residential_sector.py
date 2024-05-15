@@ -1,5 +1,5 @@
 """
-Builds residential sector database
+Builds residential buildings sector database
 Written by Ian David Elder for the CANOE model
 """
 
@@ -27,14 +27,14 @@ def build_database():
     # Convert data costs to final currency
     currency_conversion.convert_currencies()
 
-    # Show any plots that have been made
     if config.params['simplify_model']: model_reduction.simplify_model()
     if config.params['clone_to_xlsx']: utils.database_converter().clone_sqlite_to_excel()
 
-    prep_high_res_testing()
+    #prep_high_res_testing()
 
     print(f"Residential sector aggregated into {os.path.basename(config.database_file)}\n")
 
+    # Show any plots that have been made
     if config.params['show_plots']: pp.show()
 
 
@@ -68,20 +68,21 @@ def prep_high_res_testing():
     }
 
     emis = {
-        2025: 1,
-        2030: 0.8,
-        2035: 0.6,
-        2040: 0.4,
-        2045: 0.2,
+        2021: 1,
+        2025: 0.80,
+        2030: 0.60,
+        2035: 0.45,
+        2040: 0.3,
+        2045: 0.15,
         2050: 0
     }
                 
     rep_days = [
         'D006', # Coldest day ON 2018
-        'D045', # Coldest day ON 2020
-        'D103',
-        'D128',
-        'D173',
+        'D035',
+        'D070',
+        'D105',
+        'D140',
         'D186' # Hottest day ON 2018
     ]
 
@@ -123,7 +124,10 @@ def prep_high_res_testing():
             curs.execute(f"""REPLACE INTO
                         EmissionLimit(regions, periods, emis_comm, emis_limit, emis_limit_units)
                         VALUES('{region}', {period}, "CO2eq", {emis[period]*base_emis[region]}, "ktCO2eq")""")
-        
+    
+    conn.commit()
+    conn.execute("VACUUM;")
+    
     conn.commit()
     conn.close()
 

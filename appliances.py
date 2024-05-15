@@ -19,8 +19,8 @@ statcan_ref = config.params['statcan_reference']
 acf = config.params['appliances']['annual_capacity_factor']
 end_use_demands = config.end_use_demands
 fuel_commodities = config.fuel_commodities
-nrcan_techs = config.nrcan_techs
-aeo_techs = config.aeo_techs
+exs_techs = config.existing_techs
+new_techs = config.new_techs
 aeo_res_class = config.aeo_res_class
 aeo_res_equip = config.aeo_res_equip
 
@@ -52,7 +52,7 @@ def aggregate_region(region):
     min_note = "99% of MaxACF. " + max_note
 
     # Get existing capacities from NRCan stock and distribute over past vintages
-    for tech, row in nrcan_techs.iterrows():
+    for tech, row in exs_techs.iterrows():
         if 'appliances' not in row['end_use']: continue
 
         out_comm = end_use_demands.loc[row['end_use'], 'comm']
@@ -85,7 +85,7 @@ def aggregate_region(region):
     pop = config.populations[region]
 
     dems = dict() # sums up demand by end use
-    for tech, row in nrcan_techs.iterrows():
+    for tech, row in exs_techs.iterrows():
         if 'appliances' not in row['end_use']: continue
 
         if row['fuels'] == 'electricity':
@@ -147,13 +147,13 @@ def aggregate_region(region):
     t13_sec = utils.get_compr_db("ON", 13, 2, 9) # PJ
 
     ## Efficiency of electricity-only techs from NRCan
-    for tech, row in nrcan_techs.iterrows():
+    for tech, row in exs_techs.iterrows():
         if 'appliances' not in row['end_use']: continue
         if row['end_use'] in ['appliances clothes dryers', 'appliances cooking ranges']: continue
 
         vints = [config.model_periods[0]] if row['end_use'] == 'appliances other' else config.tech_vints[tech]
 
-        note = (f"(Munity/PJ) {base_year} demand divided by {base_year} secondary energy consumption (NRCan, {base_year}). ")
+        note = (f"(kunity/PJ) {base_year} demand divided by {base_year} secondary energy consumption (NRCan, {base_year}). ")
 
         stock = t31_elc_stk.loc[row['nrcan_stocks'], base_year]
         sec = t13_sec.loc[row['nrcan_stocks'], base_year]
@@ -188,27 +188,27 @@ def aggregate_region(region):
     fuels = ['electricity', 'natural gas'] # fuels to deal with
     hb_uecs = [hb_uec_elc, hb_uec_ng] # reciprocal of base efficiency is "energy consumption"
     
-    # Calculate efficiencies for each fuel in Munity/PJ
+    # Calculate efficiencies for each fuel in kunity/PJ
     for end_use in ['appliances clothes dryers', 'appliances cooking ranges']:
 
         # Both ng and elc technologies for this end use
-        techs = [nrcan_techs.loc[(nrcan_techs['end_use']==end_use) & (nrcan_techs['fuels']==fuel)].index.values[0] for fuel in fuels]
+        techs = [exs_techs.loc[(exs_techs['end_use']==end_use) & (exs_techs['fuels']==fuel)].index.values[0] for fuel in fuels]
 
         for f in [0,1]:
 
-            row = nrcan_techs.loc[techs[f]] # configuration data
+            row = exs_techs.loc[techs[f]] # configuration data
             vints = config.tech_vints[techs[f]]
 
             fuel = fuel_commodities.loc[fuels[f]]
             note = (f"({config.end_use_demands.loc[row['end_use'], 'dem_unit']}/{fuel['unit']}) From generic unit energy consumpion (UEC) of existing stock"
                     " from Energy Use Data Handbook as provincial data cannot be disaggregated by both end use and fuel.")
 
-            # Efficiency in Munity/PJ times acf because assumed actual activity is stock times acf
+            # Efficiency in kunity/PJ times acf because assumed actual activity is stock times acf
             eff_exs = 1/hb_uecs[f].loc[row['nrcan_stocks'], base_year] * acf
 
             ## Existing Efficiency
             for vint in vints:
-                if vint + config.lifetimes[nrcan_techs.loc[techs[f],'aeo_class']] <= config.model_periods[0]: continue
+                if vint + config.lifetimes[exs_techs.loc[techs[f],'aeo_class']] <= config.model_periods[0]: continue
                 
                 curs.execute(f"""REPLACE INTO
                         Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
@@ -229,7 +229,7 @@ def aggregate_region(region):
     # AEO data relevant to this region
     df0 = aeo_res_equip.loc[(aeo_res_equip['Census Division'] == config.regions.loc[region, 'us_census_div']) | (aeo_res_equip['Census Division'] == 11)]
 
-    for tech, row in aeo_techs.iterrows():
+    for tech, row in new_techs.iterrows():
         if 'appliances' not in row['end_uses']: continue
         if not row['include_new']: continue
 
@@ -237,11 +237,11 @@ def aggregate_region(region):
         df1 = df0.loc[row['aeo_equip']]
         
         # Get baseline efficiency from existing stock
-        nrcan_tech = nrcan_techs.loc[nrcan_techs['end_use'] + " - " + nrcan_techs['description'] == row['nrcan_equiv']].index.values[0]
+        nrcan_tech = exs_techs.loc[exs_techs['end_use'] + " - " + exs_techs['description'] == row['nrcan_equiv']].index.values[0]
         base_eff = aeo_res_class.loc[row['aeo_class'], 'Base Efficiency']
         eff_exs = curs.execute(f"SELECT efficiency FROM Efficiency WHERE regions == '{region}' and tech == '{nrcan_tech}'").fetchone()[0]
 
-        note = (f"(Munity/PJ) Efficiency assumed same as {nrcan_tech} "
+        note = (f"(kunity/PJ) Efficiency assumed same as {nrcan_tech} "
                 f"but indexed to relative efficiency for this vintage versus baseline efficiency from AEO data (AEO, {aeo_year}).")
 
         vints = config.tech_vints[tech]

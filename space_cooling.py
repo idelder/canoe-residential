@@ -16,7 +16,7 @@ nrcan_ref = config.params['nrcan_reference']
 statcan_year = config.params['statcan_data_year']
 statcan_ref = config.params['statcan_reference']
 fuel_commodities = config.fuel_commodities
-nrcan_techs = config.nrcan_techs
+nrcan_techs = config.existing_techs
 space_cooling = config.end_use_demands.loc['space cooling']
 
 
@@ -76,7 +76,7 @@ def aggregate_region(region):
     ##############################################################
     """
 
-    for tech, row in config.nrcan_techs.iterrows():
+    for tech, row in config.existing_techs.iterrows():
         if row['end_use'] != 'space cooling': continue
 
         # Input commodity

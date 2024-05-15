@@ -15,7 +15,7 @@ statcan_year = config.params['statcan_data_year']
 statcan_ref = config.params['statcan_reference']
 base_year = config.params['base_year']
 nrcan_ref = config.params['nrcan_reference']
-aeo_ref = config.params['aeo_reference']
+aeo_ref = config.params['aeo_updated_reference']
 aeo_year = config.params['aeo_data_year']
 on_stock_ref = config.params['lighting']['on_stock_ref']
 usage_ref = config.params['lighting']['usage_ref']
@@ -39,9 +39,9 @@ lgt_usage = utils.get_statcan_table(38100048)
 lgt_usage['GEO'] = lgt_usage['GEO'].str.lower()
 
 # Configuration file for lighting technologies, including Ontario shares data from residential end use survey
-exs_techs = pd.read_csv(config.input_files + '/existing_lighting.csv', index_col=0)
+exs_techs = pd.read_csv(config.input_files + '/existing_lighting_technologies.csv', index_col=0)
 aeo_data = pd.read_csv(config.input_files + '/aeo_lighting_data.csv', index_col=0)
-aeo_techs = pd.read_csv(config.input_files + '/aeo_lighting_technologies.csv', index_col=0)
+aeo_techs = pd.read_csv(config.input_files + '/new_lighting_technologies.csv', index_col=0)
 
 
 
@@ -50,7 +50,8 @@ def get_aeo_value(code, metric, vintage):
     
     # Get data from latest preceding vintage
     vints = np.array([int(col) for col in aeo_data.columns if col.isdecimal()])
-    last_vint = vints[vints < vintage][-1]
+    if vintage < min(vints): last_vint = vints[0]
+    else: last_vint = vints[vints < vintage][-1]
     value = aeo_data.loc[aeo_data['metric']==metric].loc[code, str(last_vint)]
 
     # If no value for that vintage, take existing stock value

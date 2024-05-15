@@ -18,8 +18,8 @@ from matplotlib import pyplot as pp
 import weather_mapping
 
 # Shortens lines a bit
-nrcan_techs = config.nrcan_techs
-aeo_techs = config.aeo_techs
+nrcan_techs = config.existing_techs
+aeo_techs = config.new_techs
 aeo_res_class = config.aeo_res_class
 aeo_res_equip = config.aeo_res_equip
 fuel_commodities = config.fuel_commodities
@@ -276,9 +276,7 @@ def pre_aggregate_region(region):
             
 
             ## CostFixed
-            cost_fixed = row['cost_fixed']
-
-            cost_fixed *= config.params['conversion_factors']['cost']['fixed']
+            cost_fixed = row['cost_fixed'] * config.params['conversion_factors']['cost']['fixed']
 
             if cost_fixed != 0:
                 for period in config.model_periods:
@@ -289,7 +287,7 @@ def pre_aggregate_region(region):
                                 CostFixed(regions, periods, tech, vintage, cost_fixed_units, data_cost_fixed, data_cost_year, data_curr,
                                 reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                                 VALUES('{region}', {period}, '{tech}', {vint}, '(M$/{cap_unit}.y)', {cost_fixed}, {curr_year}, '{curr}',
-                                '{aeo_ref}', {aeo_year}, 1, 1, 1, 1, 3, 1)""")
+                                '{config.params['aeo_updated_reference']}', {aeo_year}, 1, 1, 1, 1, 3, 1)""")
 
 
             # For each end use the technology supplies (heat pumps do heating and cooling)
@@ -326,8 +324,6 @@ def pre_aggregate_region(region):
         if pd.isna(aeo_class): continue # should only apply to appliances other
 
         equiv_tech = aeo_techs.loc[aeo_techs['aeo_class']==aeo_class].index.values[0]
-        cost_fixed = aeo_techs.loc[equiv_tech, 'cost_fixed']
-
         note = f"Assumed same as {equiv_tech}."
 
 
@@ -343,9 +339,8 @@ def pre_aggregate_region(region):
         
 
         ## CostFixed
+        cost_fixed = aeo_techs.loc[equiv_tech, 'cost_fixed'] * config.params['conversion_factors']['cost']['fixed']
         if cost_fixed == 0: continue
-
-        cost_fixed *= config.params['conversion_factors']['cost']['fixed']
 
         for vint in config.tech_vints[tech]:
             for period in config.model_periods:
@@ -355,8 +350,8 @@ def pre_aggregate_region(region):
                 curs.execute(f"""REPLACE INTO
                             CostFixed(regions, periods, tech, vintage, cost_fixed_units, cost_fixed_notes, data_cost_fixed, data_cost_year, data_curr,
                             reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                            VALUES('{region}', {period}, '{tech}', {vint}, '(M$/{cap_unit}.y)', '{note}', {aeo_techs.loc[equiv_tech, 'cost_fixed']}, {curr_year}, '{curr}',
-                            '{aeo_ref}', {aeo_year}, 2, 1, 1, 1, 3, 3)""")
+                            VALUES('{region}', {period}, '{tech}', {vint}, '(M$/{cap_unit}.y)', '{note}', {cost_fixed}, {curr_year}, '{curr}',
+                            '{config.params['aeo_updated_reference']}', {aeo_year}, 2, 1, 1, 1, 3, 3)""")
     
     """
     ##############################################################
@@ -428,6 +423,15 @@ def post_process():
 
     conn.commit()
     conn.close()
+
+
+    """
+    ##############################################################
+       References
+    ##############################################################
+    """
+
+    utils.fill_references_table()
 
     print(f"Post-aggregation complete.\n")
 
@@ -524,7 +528,7 @@ def aggregate_dsd():
             cons[state][housing_type] = dict()
 
             df_res = utils.get_data(config.params['resstock']['url'].replace("<s>",state.upper()).replace("<f>", file_name).replace("<s>", state.lower()))
-            df_res.fillna(0, inplace=True)
+            df_res = df_res.fillna(0).set_index('timestamp')
             stock = df_res['units_represented'].iloc[0]
 
             for end_use in config.end_use_demands.index:
@@ -534,7 +538,7 @@ def aggregate_dsd():
                 for res_col in res_cols.index:
                     
                     # Divide consumption by number of units represented to get consumption per household
-                    con = df_res[res_col].iloc[[8760, *range(3, 4*8760-1, 4)]].astype(float).clip(lower=0) / float(stock) # 15-minutely so take every 4th
+                    con = df_res[res_col].iloc[[35039,*range(3,4*8760-3,4)]].astype(float).clip(lower=0) / float(stock) # 15-minutely so take every 4th
 
                     if end_use in cons[state][housing_type].keys(): cons[state][housing_type][end_use] += con
                     else: cons[state][housing_type][end_use] = con
@@ -559,6 +563,8 @@ def aggregate_dsd():
         # Create figure and axes
         fig, axs = pp.subplots(4, 3, figsize=(15, 10))  # 4 rows, 3 columns
         axs[-1, -1].axis('off')
+        fig.tight_layout()
+        fig.subplots_adjust(wspace=0.2, hspace=0.3, top=0.9, left=0.05, right=0.95, bottom=0.05)
         fig.suptitle(f"{region} demand specific distributions (blue). Weekly profile in red.")
 
         p = 0 # plot tracker
@@ -568,6 +574,7 @@ def aggregate_dsd():
 
             # Consumption for each housing type times provincial stock of that housing type
             con_us = sum([t14[housing_type] * cons[state][housing_type][end_use] for housing_type in t14.index])
+            con_us = utils.realign_timezone(con_us, from_timezone='EST')
 
             # Map space heating, cooling to temperature and dew point temp (humidity). Note: this might introduce weather efficiency to the demand!
             if eud_config['use_weather_map']: con_ca, time_of_week = weather_mapping.map_data(region, con_us.to_numpy())
@@ -578,22 +585,29 @@ def aggregate_dsd():
             dsd = (con_ca / con_ca.sum()).to_list()
 
             # For plotting DSDs
-            row = p // 3  # Integer division to determine row
-            col = p % 3   # Modulo to determine column
+            row = p // 3 # integer division to determine row
+            col = p % 3 # modulo to determine column
             axs[row, col].plot(dsd)
-            if eud_config['use_weather_map']: axs[row, col].twinx().plot(range(0,8736,52), time_of_week, 'r-') # time of week multipliers overlaid
+            #if eud_config['use_weather_map']: axs[row, col].twinx().plot(range(0,8736,52), time_of_week, 'r-') # time of week variation overlaid
             axs[row, col].set_title(end_use)
             p+=1
 
-            try:
-                for h in range(8760):
-                    # TODO this dumps 750 MB of note and reference data into the database
-                    curs.execute(f"""REPLACE INTO
-                                DemandSpecificDistribution(regions, season_name, time_of_day_name, demand_name, dsd, dsd_notes,
-                                reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                                VALUES('{region}', '{config.time.loc[h, 'season']}', '{config.time.loc[h, 'time_of_day']}', '{demand_comm}', '{dsd[h]}', '{note}',
-                                '{reference}', {weather_year}, 3, 2, 1, {utils.dq_time(base_year, weather_year)}, 3, 3)""")
-            except: pp.show()
+            for h, time in config.time.iterrows():
+
+                seas = time['season']
+                tod = time['time_of_day']
+
+                if tod == config.time['time_of_day'].iloc[0]:
+                    _note = note
+                    _ref = reference
+                else: _note = _ref = ''
+
+                # TODO this dumps 750 MB of note and reference data into the database
+                curs.execute(f"""REPLACE INTO
+                            DemandSpecificDistribution(regions, season_name, time_of_day_name, demand_name, dsd, dsd_notes,
+                            reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
+                            VALUES('{region}', '{seas}', '{tod}', '{demand_comm}', '{dsd[h]}', '{_note}',
+                            '{_ref}', {weather_year}, 3, 2, 1, {utils.dq_time(base_year, weather_year)}, 3, 3)""")
 
         pp.tight_layout()
 
@@ -714,7 +728,7 @@ def cleanup():
     tr_tables = [table for table in t_tables if 'regions' in [description[0] for description in curs.execute(f"SELECT * FROM '{table}'").description]]
 
     for region in config.model_regions:
-        for tech, row in config.nrcan_techs.iterrows():
+        for tech, row in config.existing_techs.iterrows():
             if row['end_use'] == 'appliances other': continue # Does not have capacity
 
             exs_cap = sum([fetch[0] for fetch in curs.execute(f"SELECT exist_cap FROM ExistingCapacity WHERE tech == '{tech}' and regions == '{region}'").fetchall()])

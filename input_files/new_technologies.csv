@@ -1,0 +1,51 @@
+﻿tech,include_new,aeo_class,aeo_equip,end_uses,end_use_ids,description,cost_fixed,fuel,nrcan_equiv
+R_APP_CL_WASH-HEF-NEW,TRUE,CL_WASH,CL_WASH_T4,appliances clothes washers,3,top loader washing machine high efficiency - new,15,electricity,appliances clothes washers - clothes washers - existing
+R_APP_CL_WASH-TYP-NEW,TRUE,CL_WASH,CL_WASH_T2,appliances clothes washers,3,top loader washing machine typical efficiency - new,15,electricity,appliances clothes washers - clothes washers - existing
+R_APP_DS_WASH-HEF-NEW,TRUE,DS_WASH,DS_WASH4,appliances dish washers,4,dish washer high efficiency - new,0,electricity,appliances dish washers - dish washers - existing
+R_APP_DS_WASH-TYP-NEW,TRUE,DS_WASH,DS_WASH2,appliances dish washers,4,dish washer typical efficiency - new,0,electricity,appliances dish washers - dish washers - existing
+R_APP_COOK_ELEC-TYP-NEW,TRUE,ELEC_STV,ELEC_STV2,appliances cooking ranges,6,electric cooking range typical efficiency - new,0,electricity,appliances cooking ranges - electric cooking ranges - existing
+R_APP_DRY_ELEC-HEF-NEW,TRUE,ELEC_DRY,ELEC_DRY4,appliances clothes dryers,7,electric dryer high efficiency - new,0,electricity,appliances clothes dryers - electric clothes dryers - existing
+R_APP_DRY_ELEC-TYP-NEW,TRUE,ELEC_DRY,ELEC_DRY2,appliances clothes dryers,7,electric dryer typical efficiency - new,0,electricity,appliances clothes dryers - electric clothes dryers - existing
+R_APP_FREZ-HEF-NEW,TRUE,FREZ,FREZ_C4,appliances freezers,9,freezer high efficiency - new,10,electricity,appliances freezers - freezers - existing
+R_APP_FREZ-TYP-NEW,TRUE,FREZ,FREZ_C2,appliances freezers,9,freezer typical efficiency - new,10,electricity,appliances freezers - freezers - existing
+R_APP_COOK_LPG-HEF-NEW,TRUE,LPG_STV,LPG_STV4,appliances cooking ranges,6,lpg cooking range high efficiency - new,0,lpg,appliances cooking ranges - natural gas cooking ranges - existing
+R_APP_COOK_LPG-TYP-NEW,TRUE,LPG_STV,LPG_STV2,appliances cooking ranges,6,lpg cooking range typical efficiency - new,0,lpg,appliances cooking ranges - natural gas cooking ranges - existing
+R_APP_COOK_NG-HEF-NEW,TRUE,NG_STV,NG_STV4,appliances cooking ranges,6,natural gas cooking range high efficiency - new,0,natural gas,appliances cooking ranges - natural gas cooking ranges - existing
+R_APP_COOK_NG-TYP-NEW,TRUE,NG_STV,NG_STV2,appliances cooking ranges,6,natural gas cooking range typical efficiency - new,0,natural gas,appliances cooking ranges - natural gas cooking ranges - existing
+R_APP_DRY_NG-HEF-NEW,TRUE,NG_DRY,NG_DRY4,appliances clothes dryers,7,natural gas dryer high efficiency - new,0,natural gas,appliances clothes dryers - natural gas clothes dryers - existing
+R_APP_DRY_NG-TYP-NEW,TRUE,NG_DRY,NG_DRY2,appliances clothes dryers,7,natural gas dryer typical efficiency - new,0,natural gas,appliances clothes dryers - natural gas clothes dryers - existing
+R_APP_REFR-HEF-NEW,TRUE,REFR,REFR_TF4,appliances refrigerators,8,refrigerator with bottom-mounted freezer high efficiency - new,20,electricity,appliances refrigerators - refrigerators - existing
+R_APP_REFR-TYP-NEW,TRUE,REFR,REFR_TF2,appliances refrigerators,8,refrigerator with bottom-mounted freezer typical efficiency - new,20,electricity,appliances refrigerators - refrigerators - existing
+R_SPC_CENT_AC-HEF-NEW,TRUE,CENT_AIR,CENT_AIR4,space cooling,2,central air conditioner high efficiency - new,85,electricity,space cooling - central air conditioning - existing
+R_SPC_CENT_AC-TYP-NEW,TRUE,CENT_AIR,CENT_AIR2,space cooling,2,central air conditioner typical efficiency - new,85,electricity,space cooling - central air conditioning - existing
+R_SPC_ROOM_AC-HEF-NEW,TRUE,ROOM_AIR,ROOM_AIR4,space cooling,2,room air conditioner high efficiency - new,0,electricity,space cooling - room air conditioning - existing
+R_SPC_ROOM_AC-TYP-NEW,TRUE,ROOM_AIR,ROOM_AIR2,space cooling,2,room air conditioner typical efficiency - new,0,electricity,space cooling - room air conditioning - existing
+R_SPH_ELEC_RAD-NEW,TRUE,ELEC_RAD,ELEC_RAD2,space heating,1,electric radiator typical efficiency - new,0,electricity,space heating - electric - existing
+R_SPH_LPG-HEF-NEW,TRUE,LPG_FA,LPG_FA4,space heating,1,lpg furnace high efficiency - new,130,lpg,space heating - other (LPG) - existing
+R_SPH_LPG-TYP-NEW,TRUE,LPG_FA,LPG_FA2,space heating,1,lpg furnace typical efficiency - new,130,lpg,space heating - other (LPG) - existing
+R_SPH_NG_BLR-HEF-NEW,TRUE,NG_RAD,NG_RAD4,space heating,1,natural gas boiler high efficiency - new,160,natural gas,space heating - natural gas - existing
+R_SPH_NG_BLR-TYP-NEW,TRUE,NG_RAD,NG_RAD2,space heating,1,natural gas boiler typical efficiency - new,160,natural gas,space heating - natural gas - existing
+R_SPH_NG_FRN-HEF-NEW,TRUE,NG_FA,NG_FA4,space heating,1,natural gas furnace high efficiency - new,130,natural gas,space heating - natural gas - existing
+R_SPH_NG_FRN-TYP-NEW,TRUE,NG_FA,NG_FA2,space heating,1,natural gas furnace typical efficiency - new,130,natural gas,space heating - natural gas - existing
+R_SPH_OIL_BLR-HEF-NEW,TRUE,DIST_RAD,DIST_RAD4,space heating,1,oil boiler high efficiency - new,170,oil,space heating - oil - existing
+R_SPH_OIL_BLR-TYP-NEW,TRUE,DIST_RAD,DIST_RAD2,space heating,1,oil boiler typical efficiency - new,170,oil,space heating - oil - existing
+R_SPH_OIL_FRN-HEF-NEW,TRUE,DIST_FA,DIST_FA4,space heating,1,oil furnace high efficiency - new,80,oil,space heating - oil - existing
+R_SPH_OIL_FRN-TYP-NEW,TRUE,DIST_FA,DIST_FA2,space heating,1,oil furnace typical efficiency - new,80,oil,space heating - oil - existing
+R_SPH_WOOD-HEF-NEW,TRUE,WOOD_HT,WOOD_HT4,space heating,1,wood stove high efficiency - new,190,wood,space heating - wood - existing
+R_SPH_WOOD-TYP-NEW,TRUE,WOOD_HT,WOOD_HT2,space heating,1,wood stove typical efficiency - new,190,wood,space heating - wood - existing
+R_SPHC_AIR_HP-HEF-NEW,TRUE,ELEC_HP,ELEC_HP4,space heating+space cooling,1+2,air-source heat pump high efficiency - new,85,electricity,space heating - heat pump - existing+space cooling - central air conditioning - existing
+R_SPHC_AIR_HP-TYP-NEW,TRUE,ELEC_HP,ELEC_HP2,space heating+space cooling,1+2,air-source heat pump typical efficiency - new,85,electricity,space heating - heat pump - existing+space cooling - central air conditioning - existing
+R_SPHC_GEO_HP-HEF-NEW,TRUE,GEO_HP,GEO_HP4,space heating+space cooling,1+2,geo-exchange heat pump high efficiency - new,90,electricity,space heating - heat pump - existing+space cooling - central air conditioning - existing
+R_SPHC_GEO_HP-TYP-NEW,TRUE,GEO_HP,GEO_HP2,space heating+space cooling,1+2,geo-exchange heat pump typical efficiency - new,90,electricity,space heating - heat pump - existing+space cooling - central air conditioning - existing
+R_SPHC_NG_HP-TYP-NEW,TRUE,NG_HP,NG_HP2,space heating+space cooling,1+2,natural gas heat pump typical efficiency - new,200,natural gas,space heating - heat pump - existing+space cooling - central air conditioning - existing
+R_WAH_ELEC-HEF-NEW,TRUE,ELEC_WH,ELEC_WH4,water heating,5,electric high efficiency - new,20,electricity,water heating - electric - existing
+R_WAH_ELEC-TYP-NEW,TRUE,ELEC_WH,ELEC_WH2,water heating,5,electric typical efficiency - new,20,electricity,water heating - electric - existing
+R_WAH_HP-HEF-NEW,TRUE,ELEC_WH,ELEC_WH7,water heating,5,heat pump high efficiency - new,20,electricity,water heating - electric - existing
+R_WAH_HP-TYP-NEW,TRUE,ELEC_WH,ELEC_WH5,water heating,5,heat pump typical efficiency - new,20,electricity,water heating - electric - existing
+R_WAH_LPG-HEF-NEW,TRUE,LPG_WH,LPG_WH4,water heating,5,lpg high efficiency - new,20,lpg,water heating - other (LPG) - existing
+R_WAH_LPG-TYP-NEW,TRUE,LPG_WH,LPG_WH2,water heating,5,lpg typical efficiency - new,20,lpg,water heating - other (LPG) - existing
+R_WAH_NG-HEF-NEW,TRUE,NG_WH,NG_WH4,water heating,5,natural gas high efficiency - new,20,natural gas,water heating - natural gas - existing
+R_WAH_NG-TYP-NEW,TRUE,NG_WH,NG_WH2,water heating,5,natural gas typical efficiency - new,20,natural gas,water heating - natural gas - existing
+R_WAH_OIL-HEF-NEW,TRUE,DIST_WH,DIST_WH4,water heating,5,oil high efficiency - new,210,oil,water heating - oil - existing
+R_WAH_OIL-TYP-NEW,TRUE,DIST_WH,DIST_WH2,water heating,5,oil typical efficiency - new,210,oil,water heating - oil - existing
+R_WAH_SOLAR-TYP-NEW,TRUE,SOLAR_WH,SOLAR_WH2,water heating,5,solar typical efficiency - new,80,ethos,water heating - electric - existing
