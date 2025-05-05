@@ -177,8 +177,10 @@ def aggregate_region(region):
     # A pain to deal with because both natural gas and electricity variants
     reference = config.params['handbook_reference']
 
+    uec_base_year = 2020 # TODO year should be updatable but 2022 download link is broken
+
     # Generic unit energy consumption of nrcan technologies
-    hb_uec = utils.get_data(f"https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/data_e/downloads/handbook/Excel/{config.params['base_year']}/res_00_16_e.xls", skiprows=7)
+    hb_uec = utils.get_data(f"https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/data_e/downloads/handbook/Excel/{uec_base_year}/res_00_16_e.xls", skiprows=7)
     hb_uec: pd.DataFrame = hb_uec.drop('Unnamed: 0', axis=1).set_index('Unnamed: 1').dropna().astype(float, errors='ignore') * config.params['conversion_factors']['activity']['kwh'] * 1000 # /unity to /kunity
     utils.clean_index(hb_uec)
     hb_uec.columns = [int(col) for col in hb_uec.columns]
@@ -204,7 +206,7 @@ def aggregate_region(region):
                     " from Energy Use Data Handbook as provincial data cannot be disaggregated by both end use and fuel.")
 
             # Efficiency in kunity/PJ times acf because assumed actual activity is stock times acf
-            eff_exs = 1/hb_uecs[f].loc[row['nrcan_stocks'], base_year] * acf
+            eff_exs = 1/hb_uecs[f].loc[row['nrcan_stocks'], uec_base_year] * acf
 
             ## Existing Efficiency
             for vint in vints:
@@ -214,7 +216,7 @@ def aggregate_region(region):
                         Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                         VALUES('{region}', '{fuel['comm']}', '{techs[f]}', {vint}, '{config.end_use_demands.loc[row['end_use'], 'comm']}', {eff_exs}, '{note}',
-                        '{reference}', {base_year}, 3, 2, 1, 1, 3, 1)""")
+                        '{reference}', {uec_base_year}, 3, 2, 1, 1, 3, 1)""")
             
 
 

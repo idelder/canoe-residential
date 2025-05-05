@@ -35,9 +35,12 @@ def get_weather_data(url: str) -> pd.DataFrame:
 
         print(f"Downloading {file_name} from Renewables Ninja API...")
 
+        if config.rninja_api[0:7] == 'WARNING':
+            raise ValueError('Failed. You must add your own Renewables Ninja API token to input_files/rninja_api_token.txt')
+        
         # Handle downloading data from Renewables Ninja API
         s = requests.session()
-        s.headers = {'Authorization': 'Token ' + config.params['weather']['api_token']} # attach API token
+        s.headers = {'Authorization': 'Token ' + config.rninja_api} # attach API token
         r = s.get(url, params={'format': 'json'})
         data = StringIO(r.text)
         df = pd.read_csv(data, skiprows=3, index_col=0)

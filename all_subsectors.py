@@ -738,7 +738,7 @@ def cleanup():
                 for table in tr_tables: 
                     curs.execute(f"DELETE FROM '{table}' WHERE tech == '{tech}' AND regions == '{region}'")
 
-                print(f"Cleaned up existing tech with no existing capacity: {region}, {tech}")
+                print(f"Cleaned up existing tech with no existing capacity: ({region}, {tech})")
 
 
     conn.commit()

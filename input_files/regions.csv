@@ -1,10 +1,10 @@
 ﻿region,description,include,nrcan_id,ca_rninja,us_state,us_census_div
 ON,ontario,TRUE,ON,CA.ON,MI,3
-AB,alberta,FALSE,AB,CA.AB,MT,8
-BC,british columbia,FALSE,BC,CA.BC,WA,9
-QC,quebec,FALSE,QC,CA.QC,ME,1
-MB,manitoba,FALSE,MB,CA.MB,ND,4
-SK,saskatchewan,FALSE,SK,CA.SK,ND,4
+AB,alberta,TRUE,AB,CA.AB,MT,8
+BC,british columbia,TRUE,BC,CA.BC,WA,9
+QC,quebec,TRUE,QC,CA.QC,ME,1
+MB,manitoba,TRUE,MB,CA.MB,ND,4
+SK,saskatchewan,TRUE,SK,CA.SK,ND,4
 NLLAB,newfoundland and labrador,FALSE,NL,CA.NF,ME,1
 PEI,prince edward island,FALSE,PE,CA.PE,ME,1
 NS,nova scotia,FALSE,NS,CA.NS,ME,1

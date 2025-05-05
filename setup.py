@@ -63,6 +63,7 @@ class config:
         cls._get_files(cls._instance)
         cls._get_aeo_data(cls._instance)
         cls._get_population_projections(cls._instance)
+        cls._get_rninja_api(cls._instance)
 
         print('Instantiated setup config.\n')
 
@@ -89,7 +90,7 @@ class config:
         config.model_periods.sort()
         config.model_regions = config.regions.loc[(config.regions['include'])].index.unique().to_list()
         config.model_regions.sort()
-
+        
 
 
     def _get_files(cls):
@@ -103,10 +104,10 @@ class config:
 
     def _get_aeo_data(cls):
 
-        config.aeo_res_class = pd.read_excel(config.input_files + 'AEO2023_Reference_case_RDM_technology_menu_rsmess.xlsx',
-                                             sheet_name='RSCLASS', skiprows=18, nrows=31, index_col=20).iloc[1:,1:20]
-        config.aeo_res_equip = pd.read_excel(config.input_files + 'AEO2023_Reference_case_RDM_technology_menu_rsmess.xlsx',
-                                             sheet_name='RSMEQP', skiprows=21, nrows=1084, index_col=28).iloc[2:,1:28]
+        config.aeo_res_class = pd.read_excel(config.input_files + 'rsmess.xlsx',
+                                             sheet_name='RSCLASS', skiprows=19, nrows=31, index_col=20).iloc[1:,1:20]
+        config.aeo_res_equip = pd.read_excel(config.input_files + 'rsmess.xlsx',
+                                             sheet_name='RSMEQP', skiprows=21, nrows=867, index_col=29).iloc[2:,2:29]
         
 
     
@@ -124,7 +125,7 @@ class config:
         df_proj['VALUE'] *= 1000
         df_proj = df_proj.loc[
             (df_proj['Projection scenario'] == 'Projection scenario M1: medium-growth') & 
-            (df_proj['Sex'] == 'Both sexes') &
+            (df_proj['Gender'] == 'Total - gender') &
             (df_proj['Age group'] == 'All ages')]
 
         # For each region, take historical first, then provincial, then index to Canadian when that runs out
@@ -201,6 +202,14 @@ class config:
 
             print(f"Request for {table} from Statcan failed. Status: {response['status']}")
             return None
+        
+
+
+    def _get_rninja_api(cls):
+
+        with open('input_files/rninja_api_token.txt') as token_file:
+            token = token_file.read()
+        config.rninja_api = token
         
 
 
