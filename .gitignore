@@ -3,3 +3,4 @@ data_cache/
 deprecated/
 residential.sqlite
 residential*.xlsx
+input_files/rninja_api_token.txt
