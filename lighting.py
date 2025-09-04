@@ -8,19 +8,13 @@ import pandas as pd
 import os
 import numpy as np
 import sqlite3
+from currency_conversion import conv_curr
 from setup import config
 
 # Shortens lines a bit
-statcan_year = config.params['statcan_data_year']
-statcan_ref = config.params['statcan_reference']
 base_year = config.params['base_year']
-nrcan_ref = config.params['nrcan_reference']
-aeo_ref = config.params['aeo_updated_reference']
-aeo_year = config.params['aeo_data_year']
-on_stock_ref = config.params['lighting']['on_stock_ref']
-usage_ref = config.params['lighting']['usage_ref']
-curr = config.params['aeo_currency']
-curr_year = config.params['aeo_currency_year']
+config.refs.add('ontario_lighting_stock', config.params['lighting']['on_stock_ref'])
+config.refs.add('lighting_usage', config.params['lighting']['usage_ref'])
 conv = config.params['conversion_factors']['lighting']
 
 # Some common variables
@@ -100,9 +94,8 @@ def aggregate_region(region):
 
     # ACF mostly arbitrary but affects lifetime
     acf_note = config.params['lighting']['acf_note']
-    min_note = acf_note + " 99% of max acf."
-    acf_ref = config.params['lighting']['acf_reference']
-    acf_data_year = config.params['lighting']['acf_data_year']
+    min_note = acf_note + " 95% of upper bound for slack."
+    ref = config.refs.add('lighting_acf', config.params['lighting']['acf_reference'])
 
     for code, row in aeo_techs.iterrows():
 
@@ -110,18 +103,20 @@ def aggregate_region(region):
 
         for period in config.model_periods:
 
-            dq_time = utils.dq_time(period, acf_data_year)
-
-            curs.execute(f"""REPLACE INTO
-                            MinAnnualCapacityFactor(regions, periods, tech, output_comm, min_acf, min_acf_notes,
-                            reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                            VALUES('{region}', {period}, '{row['tech']}', '{lighting['comm']}', {acf*0.99}, '{min_note}',
-                            '{acf_ref}', {acf_data_year}, 1, 1, 1, {dq_time}, 1, 1)""")
-            curs.execute(f"""REPLACE INTO
-                            MaxAnnualCapacityFactor(regions, periods, tech, output_comm, max_acf, max_acf_notes,
-                            reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                            VALUES('{region}', {period}, '{row['tech']}', '{lighting['comm']}', {acf}, '{acf_note}',
-                            '{acf_ref}', {acf_data_year}, 1, 1, 1, {dq_time}, 1, 1)""")
+            curs.execute(
+                f"""REPLACE INTO
+                LimitAnnualCapacityFactor(region, period, tech, output_comm, operator, factor,
+                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                VALUES('{region}', {period}, '{row['tech']}', '{lighting['comm']}', 'ge', {acf*0.95},
+                '{min_note}', '{ref.id}', 1, 3, 3, 1, 4, '{utils.data_id(region)}')"""
+            )
+            curs.execute(
+                f"""REPLACE INTO
+                LimitAnnualCapacityFactor(region, period, tech, output_comm, operator, factor,
+                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                VALUES('{region}', {period}, '{row['tech']}', '{lighting['comm']}', 'le', {acf},
+                '{acf_note}', '{ref.id}', 1, 3, 3, 1, 4, '{utils.data_id(region)}')"""
+            )
 
 
 
@@ -131,13 +126,13 @@ def aggregate_region(region):
     ##############################################################
     """
 
-    # The major challenge of lighting is estimating existing capacity of lighting types
+    # TODO The major challenge of lighting is estimating existing capacity of lighting types
     # If we had better data for this everything would be fine... but we only have for Ontario
     # So we take stock data for Ontario and index it to usage rates from a Statcan survey per province
 
     note = (f"{base_year} secondary energy (NRCan, {base_year}) multiplied by average efficacy (efficiency) of existing lighting stock. "
-            f"Indexed to projected population (Statcan, {statcan_year})")
-    reference = f"{nrcan_ref}; {statcan_ref}"
+            f"Indexed to projected population")
+    ref = config.refs.get('nrcan_statcan')
     
     # Get usage of bulb types for this region relative to Ontario
     # Because we have actual shares data for Ontario (residential end use survey)
@@ -168,6 +163,7 @@ def aggregate_region(region):
     # Unit conversion
     exs_techs['efficacy'] *= conv['efficacy'] # efficacy lm/W to Glmy/PJ
     exs_techs['cost_maintain'] *= conv['cost'] # $/klmy to $/Glmy
+    exs_techs['cost_maintain'] = conv_curr(exs_techs['cost_maintain'])
     exs_techs['lamp_life'] = round(exs_techs['lamp_life'] * conv['lifetime'] / acf)
 
     # Finally, calculate the average efficacy of existing lighting stock, indexed to shares of single-family vs multi-family housing
@@ -185,11 +181,13 @@ def aggregate_region(region):
 
     # Write demand to database
     for period in config.model_periods:
-        curs.execute(f"""REPLACE INTO
-                    Demand(regions, periods, demand_comm, demand, demand_units, demand_notes,
-                    reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                    VALUES('{region}', {period}, '{lighting['comm']}', {dem.loc[period].iloc[0]}, '({lighting['dem_unit']})', '{note}',
-                    '{reference}', {base_year}, 3, 3, 1, {utils.dq_time(period, base_year)}, 3, 1)""")
+        curs.execute(
+            f"""REPLACE INTO
+            Demand(region, period, commodity, demand, units,
+            notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+            VALUES('{region}', {period}, '{lighting['comm']}', {dem.loc[period].iloc[0]}, '({lighting['dem_unit']})',
+            '{note}', '{ref.id}', 1, 3, 4, 2, 4, '{utils.data_id(region)}')"""
+        )
         
 
 
@@ -213,28 +211,31 @@ def aggregate_region(region):
         
         tech_desc = f"lighting - {exs.loc['description']}"
         curs.execute(f"""REPLACE INTO
-                    technologies(tech, flag, sector, tech_desc, reference)
-                    VALUES('{exs['tech']}', 'p', 'residential', '{tech_desc}', '{nrcan_ref}')""")
+                    Technology(tech, flag, sector, description, data_id)
+                    VALUES('{exs['tech']}', 'p', 'residential', '{tech_desc}', '{utils.data_id()}')""")
         curs.execute(f"""REPLACE INTO
-                    LifetimeTech(regions, tech, life, life_notes,
-                    reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                    VALUES('{region}', '{exs['tech']}', {lifetime}, '(y) {aeo_note}',
-                    '{aeo_ref}', {aeo_year}, 1, 1, 1, 1, 3, 1)""")
+                    LifetimeTech(region, tech, lifetime,
+                    notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                    VALUES('{region}', '{exs['tech']}', {lifetime},
+                    '(y) {aeo_note}', '{ref.id}', 1, 3, 2, 2, 3, '{utils.data_id(region)}')""")
 
         for period in config.model_periods:
             if max(vints) + lifetime <= period: continue
 
-            dq_time = utils.dq_time(period, acf_data_year)
-            curs.execute(f"""REPLACE INTO
-                        MinAnnualCapacityFactor(regions, periods, tech, output_comm, min_acf, min_acf_notes,
-                        reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', {period}, '{exs['tech']}', '{lighting['comm']}', {acf*0.99}, '{min_note}',
-                        '{acf_ref}', {acf_data_year}, 1, 1, 1, {dq_time}, 1, 1)""")
-            curs.execute(f"""REPLACE INTO
-                        MaxAnnualCapacityFactor(regions, periods, tech, output_comm, max_acf, max_acf_notes,
-                        reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', {period}, '{exs['tech']}', '{lighting['comm']}', {acf}, '{acf_note}',
-                        '{acf_ref}', {acf_data_year}, 1, 1, 1, {dq_time}, 1, 1)""")
+            curs.execute(
+                f"""REPLACE INTO
+                LimitAnnualCapacityFactor(region, period, tech, output_comm, operator, factor,
+                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                VALUES('{region}', {period}, '{row['tech']}', '{lighting['comm']}', 'ge', {acf*0.95},
+                '{min_note}', '{ref.id}', 1, 3, 2, 2, 4, '{utils.data_id(region)}')"""
+            )
+            curs.execute(
+                f"""REPLACE INTO
+                LimitAnnualCapacityFactor(region, period, tech, output_comm, operator, factor,
+                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                VALUES('{region}', {period}, '{row['tech']}', '{lighting['comm']}', 'le', {acf},
+                '{acf_note}', '{ref.id}', 1, 3, 2, 2, 4, '{utils.data_id(region)}')"""
+            )
 
         # Some lighting techs didn't come around that long ago so restrict the oldest vintage
         if not pd.isna(exs['oldest_vint']): vints = [vint for vint in vints if vint >= exs['oldest_vint']]
@@ -250,28 +251,40 @@ def aggregate_region(region):
             note = (f"Ontario existing stock of residential bulb types by housing type (IESO, 2018) "
                     f"multiplied by housing stock by type (NRCan, {base_year}). "
                     f"Indexed to relative usage of bulb types by province versus Ontario (Statcan, 2018) "
-                    f"and to projected population (Statcan, {statcan_year}).")
-            reference = f"{on_stock_ref}; {nrcan_ref}; {usage_ref}; {statcan_ref}"
-            curs.execute(f"""REPLACE INTO
-                        ExistingCapacity(regions, tech, vintage, exist_cap, exist_cap_units, exist_cap_notes,
-                        reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{exs['tech']}', {vint}, {exs['existing_capacity'] * weight}, '({lighting['cap_unit']})', '{note}',
-                        '{reference}', {2018}, 4, 2, 1, {utils.dq_time(config.model_periods[0], 2018)}, 3, 1)""")
+                    f"and to projected population (Statcan)")
+            ref = config.refs.add('lighting_existing_capacity',
+                f"{config.params['lighting']['on_stock_ref']}; "
+                f"{config.params['nrcan_reference']}; "
+                f"{config.params['lighting']['usage_ref']}; "
+                f"{config.params['aeo_reference']}"
+            )
+            curs.execute(
+                f"""REPLACE INTO
+                ExistingCapacity(region, tech, vintage, capacity, units,
+                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                VALUES('{region}', '{exs['tech']}', {vint}, {exs['existing_capacity'] * weight}, '({lighting['cap_unit']})',
+                '{note}', '{ref.id}', 1, 2, 3, 3, 4, '{utils.data_id(region)}')"""
+            )
             
-            curs.execute(f"""REPLACE INTO
-                        Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
-                        reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{in_comm['comm']}', '{exs['tech']}', {vint}, '{lighting['comm']}', {exs['efficacy']}, '({lighting['dem_unit']}/{in_comm['unit']}) {aeo_note}',
-                        '{aeo_ref}', {2018}, 1, 1, 1, 1, 3, 1)""")
+            ref = config.refs.get('aeo')
+            curs.execute(
+                f"""REPLACE INTO
+                Efficiency(region, input_comm, tech, vintage, output_comm, efficiency,
+                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                VALUES('{region}', '{in_comm['comm']}', '{exs['tech']}', {vint}, '{lighting['comm']}', {exs['efficacy']},
+                '({lighting['dem_unit']}/{in_comm['unit']}) {aeo_note}', '{ref.id}', 1, 2, 3, 3, 4, '{utils.data_id(region)}')"""
+            )
             
             for period in config.model_periods:
                 if vint > period or vint + lifetime <= period: continue
 
-                curs.execute(f"""REPLACE INTO
-                            CostFixed(regions, periods, tech, vintage, cost_fixed_units, cost_fixed_notes, data_cost_fixed, data_cost_year, data_curr,
-                            reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                            VALUES('{region}', {period}, '{exs['tech']}', {vint}, '(M$/{lighting['cap_unit']}.y)', '{aeo_note}', {exs['cost_maintain']}, {curr_year}, '{curr}',
-                            '{aeo_ref}', {aeo_year}, 2, 1, 1, 1, 3, 3)""")
+                curs.execute(
+                    f"""REPLACE INTO
+                    CostFixed(region, period, tech, vintage, cost, units,
+                    notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                    VALUES('{region}', {period}, '{exs['tech']}', {vint}, {exs['cost_maintain']}, '(M$/{lighting['cap_unit']}.y)',
+                    '{aeo_note}', '{ref.id}', 1, 2, 3, 3, 4, '{utils.data_id(region)}')"""
+                )
     
 
 
@@ -286,9 +299,11 @@ def aggregate_region(region):
         if not aeo['include_new']: continue
 
         tech_desc = f"lighting - {aeo['description']}"
-        curs.execute(f"""REPLACE INTO
-                        technologies(tech, flag, sector, tech_desc, reference)
-                        VALUES('{aeo['tech']}', 'p', 'residential', '{tech_desc}', '{aeo_ref}')""")
+        curs.execute(
+            f"""REPLACE INTO
+            Technology(tech, flag, sector, description, data_id)
+            VALUES('{aeo['tech']}', 'p', 'residential', '{tech_desc}', '{utils.data_id()}')"""
+        )
 
         # Vintages for new stock are model periods
         for vint in config.model_periods:
@@ -298,29 +313,36 @@ def aggregate_region(region):
 
             ## LifetimeProcess
             # Using lifetime process because some bulb lives might improve over model periods in aeo data
-            note = f"(y) Lamp life in hours (AEO, {aeo_year}) divided by annual capacity factor (DOE, 2012)."
-            reference = f"{aeo_ref}; {acf_ref}"
-            curs.execute(f"""REPLACE INTO
-                        LifetimeProcess(regions, tech, vintage, life_process, life_process_notes,
-                        reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{aeo['tech']}', {vint}, {lifetime}, '{note}',
-                        '{reference}', {aeo_year}, 1, 1, 1, 1, 3, 1)""")
+            note = f"(y) Lamp life in hours (AEO) divided by annual capacity factor (DOE, 2012)."
+            ref = config.refs.get('aeo')
+            curs.execute(
+                f"""REPLACE INTO
+                LifetimeProcess(region, tech, vintage, lifetime,
+                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                VALUES('{region}', '{aeo['tech']}', {vint}, {lifetime},
+                '{note}', '{ref.id}', 1, 3, 3, 1, 2, '{utils.data_id(region)}')"""
+            )
             
             ## Efficiency
-            efficacy = conv['efficacy'] * get_aeo_value(code, 'efficacy', vint)
-            curs.execute(f"""REPLACE INTO
-                        Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
-                        reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{in_comm['comm']}', '{aeo['tech']}', {vint}, '{lighting['comm']}', {efficacy}, '({lighting['dem_unit']}/{in_comm['unit']})',
-                        '{aeo_ref}', {2018}, 1, 1, 1, 1, 3, 1)""")
+            eff = conv['efficacy'] * get_aeo_value(code, 'efficacy', vint)
+            curs.execute(
+                f"""REPLACE INTO
+                Efficiency(region, input_comm, tech, vintage, output_comm, efficiency,
+                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                VALUES('{region}', '{in_comm['comm']}', '{aeo['tech']}', {vint}, '{lighting['comm']}', {eff},
+                '({lighting['dem_unit']}/{in_comm['unit']})', '{ref.id}', 1, 3, 3, 1, 2, '{utils.data_id(region)}')"""
+            )
             
             ## CostInvest
             cost_invest = conv['cost'] * get_aeo_value(code, 'cost_install', vint)
-            curs.execute(f"""REPLACE INTO
-                        CostInvest(regions, tech, vintage, cost_invest_units, data_cost_invest, data_cost_year, data_curr,
-                        reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{aeo['tech']}', {vint}, '(M$/{lighting['cap_unit']})', {cost_invest}, {curr_year}, '{curr}',
-                        '{aeo_ref}', {aeo_year}, 1, 1, 1, 1, 3, 1)""")
+            cost_invest = conv_curr(cost_invest)
+            curs.execute(
+                f"""REPLACE INTO
+                CostInvest(region, tech, vintage, cost, units,
+                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                VALUES('{region}', '{aeo['tech']}', {vint}, {cost_invest}, '(M$/{lighting['cap_unit']})',
+                '{note}', '{ref.id}', 1, 3, 3, 1, 2, '{utils.data_id(region)}')"""
+            )
             
             for period in config.model_periods:
                 
@@ -329,11 +351,14 @@ def aggregate_region(region):
                 
                 ## CostFixed
                 cost_fixed = conv['cost'] * get_aeo_value(code, 'cost_maintain', vint)
-                curs.execute(f"""REPLACE INTO
-                            CostFixed(regions, periods, tech, vintage, cost_fixed_units, data_cost_fixed, data_cost_year, data_curr,
-                            reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                            VALUES('{region}', {period}, '{aeo['tech']}', {vint}, '(M$/{lighting['cap_unit']}.y)', {cost_fixed}, {curr_year}, '{curr}',
-                            '{aeo_ref}', {aeo_year}, 1, 1, 1, 1, 3, 1)""")
+                cost_fixed = conv_curr(cost_fixed)
+                curs.execute(
+                    f"""REPLACE INTO
+                    CostFixed(region, period, tech, vintage, cost, units,
+                    notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                    VALUES('{region}', {period}, '{aeo['tech']}', {vint}, {cost_fixed}, '(M$/{lighting['cap_unit']}.y)',
+                    '{note}', '{ref.id}', 1, 3, 3, 1, 2, '{utils.data_id(region)}')"""
+                )
 
 
 

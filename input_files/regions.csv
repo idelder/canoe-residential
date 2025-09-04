@@ -5,7 +5,7 @@ BC,british columbia,TRUE,BC,CA.BC,WA,9
 QC,quebec,TRUE,QC,CA.QC,ME,1
 MB,manitoba,TRUE,MB,CA.MB,ND,4
 SK,saskatchewan,TRUE,SK,CA.SK,ND,4
-NLLAB,newfoundland and labrador,FALSE,NL,CA.NF,ME,1
-PEI,prince edward island,FALSE,PE,CA.PE,ME,1
-NS,nova scotia,FALSE,NS,CA.NS,ME,1
-NB,new brunswick,FALSE,NB,CA.NB,ME,1
+NLLAB,newfoundland and labrador,TRUE,NL,CA.NF,ME,1
+PEI,prince edward island,TRUE,PE,CA.PE,ME,1
+NS,nova scotia,TRUE,NS,CA.NS,ME,1
+NB,new brunswick,TRUE,NB,CA.NB,ME,1

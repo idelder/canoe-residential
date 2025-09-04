@@ -16,6 +16,7 @@ import lighting
 import appliances
 from matplotlib import pyplot as pp
 import weather_mapping
+from currency_conversion import conv_curr
 
 # Shortens lines a bit
 nrcan_techs = config.existing_techs
@@ -24,11 +25,8 @@ aeo_res_class = config.aeo_res_class
 aeo_res_equip = config.aeo_res_equip
 fuel_commodities = config.fuel_commodities
 end_use_demands = config.end_use_demands
-aeo_ref = config.params['aeo_reference']
 aeo_year = config.params['aeo_data_year']
 base_year = config.params['base_year']
-nrcan_ref = config.params['nrcan_reference']
-statcan_ref = config.params['statcan_reference']
 conversion_factors = config.params['conversion_factors']
 
 
@@ -72,37 +70,48 @@ def pre_process():
     ##############################################################
     """
 
-    for h, row in config.time.iterrows():
-        curs.execute(f"""REPLACE INTO
-                     time_season(t_season)
-                     VALUES('{row['season']}')""")
-        curs.execute(f"""REPLACE INTO
-                     time_of_day(t_day)
-                     VALUES('{row['time_of_day']}')""")
-        curs.execute(f"""REPLACE INTO
-                     SegFrac(season_name, time_of_day_name, segfrac)
-                     VALUES('{row['season']}', '{row['time_of_day']}', {1/8760})""")
-        
-    for period in [*config.model_periods, config.model_periods[-1] + config.params['period_step']]:
-        curs.execute(f"""REPLACE INTO
-                     time_periods(t_periods, flag)
-                     VALUES({period}, 'f')""")
-        
-    for label, description in {'f': 'future', 'e': 'existing'}.items():
-        curs.execute(f"""INSERT OR IGNORE INTO
-                     time_period_labels(t_period_labels, t_period_labels_desc)
-                     VALUES('{label}', '{description}')""")
+    for season in config.time['season'].unique():
+        curs.execute(
+            f"""REPLACE INTO
+            SeasonLabel(season)
+            VALUES('{season}')"""
+        )
 
-    for region, row in config.regions.iterrows():
-        if row['include']:
-            curs.execute(f"""REPLACE INTO
-                        regions(regions, region_note)
-                        VALUES('{region}', '{row['description']}')""")
-    
-    curs.execute(f"DELETE FROM GlobalDiscountRate")
-    curs.execute(f"""REPLACE INTO
-                GlobalDiscountRate(rate)
-                VALUES({config.params['global_discount_rate']})""")
+    for period in config.model_periods:
+        for i, season in enumerate(config.time['season'].unique()):
+            curs.execute(
+                f"""REPLACE INTO
+                TimeSeason(period, sequence, season)
+                VALUES({period}, {i}, '{season}')"""
+            )
+
+        for _h, row in config.time.iterrows():
+            curs.execute(
+                f"""REPLACE INTO
+                TimeSegmentFraction(period, season, tod, segfrac)
+                VALUES({period}, '{row['season']}', '{row['tod']}', {1/8760})"""
+            )
+
+    for i, tod in enumerate(config.time['tod'].unique()):
+        curs.execute(
+            f"""REPLACE INTO
+            TimeOfDay(sequence, tod)
+            VALUES({i}, '{tod}')"""
+        )
+        
+    for i, period in enumerate([*config.model_periods, config.model_periods[-1] + config.params['period_step']]):
+        curs.execute(
+            f"""REPLACE INTO
+            TimePeriod(sequence, period, flag)
+            VALUES({i}, {period}, 'f')"""
+        )
+
+    for region, row in config.regions[config.regions['include']].iterrows():
+        curs.execute(
+            f"""REPLACE INTO
+            Region(region, notes)
+            VALUES('{region}', '{row['description']}')"""
+        )
 
 
     """
@@ -112,18 +121,24 @@ def pre_process():
     """
 
     for _fuel, row in fuel_commodities.iterrows():
-        curs.execute(f"""REPLACE INTO
-                    commodities(comm_name, flag, comm_desc)
-                    VALUES('{row['comm']}', 'p', '(PJ) {row['description']}')""")
+        curs.execute(
+            f"""REPLACE INTO
+            Commodity(name, flag, description, data_id)
+            VALUES('{row['comm']}', 'p', '(PJ) {row['description']}', '{utils.data_id()}')"""
+        )
     for _end_use, row in end_use_demands.iterrows():
-        curs.execute(f"""REPLACE INTO
-                    commodities(comm_name, flag, comm_desc)
-                    VALUES('{row['comm']}', 'd', '(PJ) {row['description']}')""")
+        curs.execute(
+            f"""REPLACE INTO
+            Commodity(name, flag, description, data_id)
+            VALUES('{row['comm']}', 'd', '(PJ) {row['description']}', '{utils.data_id()}')"""
+        )
         
     # CO2-equivalent emission commodity
-    curs.execute(f"""REPLACE INTO
-                commodities(comm_name, flag, comm_desc)
-                VALUES('{config.params['emission_commodity']}', 'e', '(ktCO2eq) CO2-equivalent emissions')""")
+    curs.execute(
+        f"""REPLACE INTO
+        Commodity(name, flag, description, data_id)
+        VALUES('{config.params['emission_commodity']}', 'e', '(ktCO2eq) CO2-equivalent emissions', '{utils.data_id()}')"""
+    )
 
 
 
@@ -161,9 +176,11 @@ def pre_process():
         if not row['include_new']: continue
         
         tech_desc = f"{row.loc['end_uses']} - {row.loc['description']}"
-        curs.execute(f"""REPLACE INTO
-                        technologies(tech, flag, sector, tech_desc, reference)
-                        VALUES('{tech}', 'p', 'residential', '{tech_desc}', '{aeo_ref}')""")
+        curs.execute(
+            f"""REPLACE INTO
+            Technology(tech, flag, sector, description, data_id)
+            VALUES('{tech}', 'p', 'residential', '{tech_desc}', '{utils.data_id()}')"""
+        )
 
         # Add future vintages to vintage dictionary
         config.tech_vints[tech] = config.model_periods
@@ -176,9 +193,11 @@ def pre_process():
     for tech, row in nrcan_techs.iterrows():
 
         tech_desc = f"{row.loc['end_use']} - {row.loc['description']}"
-        curs.execute(f"""REPLACE INTO
-                        technologies(tech, flag, sector, tech_desc, reference)
-                        VALUES('{tech}', 'p', 'residential', '{tech_desc}', '{nrcan_ref}')""")
+        curs.execute(
+            f"""REPLACE INTO
+            Technology(tech, flag, sector, description, data_id)
+            VALUES('{tech}', 'p', 'residential', '{tech_desc}', '{utils.data_id()}')"""
+        )
 
         # Get equivalent future tech
         aeo_class = row.loc['aeo_class']
@@ -213,8 +232,8 @@ def pre_aggregate_region(region):
 
     cens_div = config.regions.loc[region, 'us_census_div']
 
-    curr = config.params['aeo_currency']
-    curr_year = config.params['aeo_currency_year']
+    ref = config.refs.get('aeo')
+    ref_updated = config.refs.add('aeo_updated', config.params['aeo_updated_reference'])
 
     # Narrow down the dataframe with each nested section to speed things up
     df0 = aeo_res_equip.loc[(aeo_res_equip['Census Division'] == cens_div) | (aeo_res_equip['Census Division'] == 11)]
@@ -237,11 +256,14 @@ def pre_aggregate_region(region):
 
         ## LifetimeTech
         note = '(y) Average of Weibull distribution.'
-        curs.execute(f"""REPLACE INTO
-                    LifetimeTech(regions, tech, life, life_notes,
-                    reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                    VALUES('{region}', '{tech}', {lifetime}, '{note}',
-                    '{aeo_ref}', {aeo_year}, 1, 1, 1, 1, 3, 1)""")
+        ref = config.refs.get('aeo')
+        curs.execute(
+            f"""REPLACE INTO
+            LifetimeTech(region, tech, lifetime,
+            notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+            VALUES('{region}', '{tech}', {lifetime},
+            '{note}', '{ref.id}', 1, 2, 2, 2, 3, '{utils.data_id(region)}')"""
+        )
 
         if type(df0) is pd.DataFrame: df1 = df0.loc[aeo_equip]
         elif type(df0) is pd.Series: df1 = df0 # only one row remaining
@@ -267,27 +289,33 @@ def pre_aggregate_region(region):
 
             ## CostInvest
             cost_invest *= config.params['conversion_factors']['cost']['invest']
+            cost_invest = conv_curr(cost_invest)
 
-            curs.execute(f"""REPLACE INTO
-                        CostInvest(regions, tech, vintage, cost_invest_units, data_cost_invest, data_cost_year, data_curr,
-                        reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{tech}', {vint}, '(M$/{cap_unit})', {cost_invest}, {curr_year}, '{curr}',
-                        '{aeo_ref}', {aeo_year}, 1, 1, 1, 1, 3, 1)""")
+            curs.execute(
+                f"""REPLACE INTO
+                CostInvest(region, tech, vintage, cost, units,
+                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                VALUES('{region}', '{tech}', {vint}, {cost_invest}, '(M$/{cap_unit})',
+                '{note}', '{ref.id}', 1, 2, 2, 2, 3, '{utils.data_id(region)}')"""
+            )
             
 
             ## CostFixed
             cost_fixed = row['cost_fixed'] * config.params['conversion_factors']['cost']['fixed']
+            cost_fixed = conv_curr(cost_fixed)
 
             if cost_fixed != 0:
                 for period in config.model_periods:
 
                     if period < vint or vint + lifetime <= period: continue
 
-                    curs.execute(f"""REPLACE INTO
-                                CostFixed(regions, periods, tech, vintage, cost_fixed_units, data_cost_fixed, data_cost_year, data_curr,
-                                reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                                VALUES('{region}', {period}, '{tech}', {vint}, '(M$/{cap_unit}.y)', {cost_fixed}, {curr_year}, '{curr}',
-                                '{config.params['aeo_updated_reference']}', {aeo_year}, 1, 1, 1, 1, 3, 1)""")
+                    curs.execute(
+                        f"""REPLACE INTO
+                        CostFixed(region, period, tech, vintage, cost, units,
+                        notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                        VALUES('{region}', {period}, '{tech}', {vint}, {cost_fixed}, '(M$/{cap_unit}.y)',
+                        '{note}', '{ref_updated.id}', 1, 2, 2, 2, 3, '{utils.data_id(region)}')"""
+                    )
 
 
             # For each end use the technology supplies (heat pumps do heating and cooling)
@@ -306,11 +334,13 @@ def pre_aggregate_region(region):
                 if eff_metric in config.params['conversion_factors']['efficiency'].keys(): eff *= config.params['conversion_factors']['efficiency'][eff_metric]
 
                 ## Default Efficiency
-                curs.execute(f"""REPLACE INTO
-                        Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
-                        reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{in_comm}', '{tech}', {vint}, '{out_comm}', {eff}, '(PJ/PJ) from {eff_metric}',
-                        '{aeo_ref}', {aeo_year}, 1, 1, 1, 1, 3, 1)""")
+                curs.execute(
+                    f"""REPLACE INTO
+                    Efficiency(region, input_comm, tech, vintage, output_comm, efficiency,
+                    notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                    VALUES('{region}', '{in_comm}', '{tech}', {vint}, '{out_comm}', {eff},
+                    '(PJ/PJ) from {eff_metric}', '{ref.id}', 1, 2, 2, 2, 3, '{utils.data_id(region)}')"""
+                )
     
 
     ##############################################################
@@ -331,15 +361,18 @@ def pre_aggregate_region(region):
         # Doing this by region so that some regions can be skipped at aggregation phase
         lifetime = config.lifetimes[aeo_class]
 
-        curs.execute(f"""REPLACE INTO
-                    LifetimeTech(regions, tech, life, life_notes,
-                    reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                    VALUES('{region}', '{tech}', {lifetime}, '{note}',
-                    '{aeo_ref}', {aeo_year}, 2, 1, 1, 1, 1, 2)""")
+        curs.execute(
+            f"""REPLACE INTO
+            LifetimeTech(region, tech, lifetime,
+            notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+            VALUES('{region}', '{tech}', {lifetime},
+            '{note}', '{ref.id}', 1, 2, 2, 3, 3, '{utils.data_id(region)}')"""
+        )
         
 
         ## CostFixed
         cost_fixed = aeo_techs.loc[equiv_tech, 'cost_fixed'] * config.params['conversion_factors']['cost']['fixed']
+        cost_fixed = conv_curr(cost_fixed)
         if cost_fixed == 0: continue
 
         for vint in config.tech_vints[tech]:
@@ -347,11 +380,13 @@ def pre_aggregate_region(region):
                 
                 if period < vint or vint + lifetime <= period: continue
 
-                curs.execute(f"""REPLACE INTO
-                            CostFixed(regions, periods, tech, vintage, cost_fixed_units, cost_fixed_notes, data_cost_fixed, data_cost_year, data_curr,
-                            reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                            VALUES('{region}', {period}, '{tech}', {vint}, '(M$/{cap_unit}.y)', '{note}', {cost_fixed}, {curr_year}, '{curr}',
-                            '{config.params['aeo_updated_reference']}', {aeo_year}, 2, 1, 1, 1, 3, 3)""")
+                curs.execute(
+                    f"""REPLACE INTO
+                    CostFixed(region, period, tech, vintage, cost, units,
+                    notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                    VALUES('{region}', {period}, '{tech}', {vint}, {cost_fixed}, '(M$/{cap_unit}.y)',
+                    '{note}', '{ref_updated.id}', 1, 2, 2, 3, 3, '{utils.data_id(region)}')"""
+                )
     
     """
     ##############################################################
@@ -373,9 +408,11 @@ def pre_aggregate_region(region):
         if pd.isna(c2a): continue
 
         unit = f"{end_use_demands.loc[end_use, 'dem_unit']}/{end_use_demands.loc[end_use, 'cap_unit']}.y" # ACT/CAP.y
-        curs.execute(f"""REPLACE INTO
-                        CapacityToActivity(regions, tech, c2a, c2a_notes, dq_est)
-                        VALUES('{region}', '{tech}', {c2a}, '({unit}) {note}', 0)""")
+        curs.execute(
+            f"""REPLACE INTO
+            CapacityToActivity(region, tech, c2a, notes, data_id)
+            VALUES('{region}', '{tech}', {c2a}, '({unit}) {note}', '{utils.data_id(region)}')"""
+        )
 
     ## AEO future stock
     for tech, row in aeo_techs.iterrows():
@@ -386,9 +423,11 @@ def pre_aggregate_region(region):
 
         c2a = end_use_demands.loc[end_uses[0], 'c2a'] # Must be the same for all end uses anyway
         unit = f"{end_use_demands.loc[end_uses[0], 'dem_unit']}/{end_use_demands.loc[end_uses[0], 'cap_unit']}.y" # ACT/CAP.y
-        curs.execute(f"""REPLACE INTO
-                        CapacityToActivity(regions, tech, c2a, c2a_notes, dq_est)
-                        VALUES('{region}', '{tech}', {c2a}, '({unit}) {note}', 0)""")
+        curs.execute(
+            f"""REPLACE INTO
+            CapacityToActivity(region, tech, c2a, notes, data_id)
+            VALUES('{region}', '{tech}', {c2a}, '({unit}) {note}', '{utils.data_id(region)}')"""
+        )
     
 
     conn.commit()
@@ -416,22 +455,40 @@ def post_process():
     vints = set([fetch[0] for fetch in curs.execute(f"SELECT vintage FROM Efficiency").fetchall() if fetch[0] not in config.model_periods])
 
     for vint in vints:
-        curs.execute(f"""INSERT OR IGNORE INTO
-                        time_periods(t_periods, flag)
-                        VALUES({vint}, 'e')""")
+        curs.execute(
+            f"""INSERT OR IGNORE INTO
+            TimePeriod(period, flag)
+            VALUES({vint}, 'e')"""
+        )
 
+
+    """
+    ##############################################################
+        References
+    ##############################################################
+    """
+
+    # Add all references in the bibliography to the references tables
+    for reference in config.refs:
+        curs.execute(f"""REPLACE INTO
+                     DataSource(source_id, source, data_id)
+                     VALUES('{reference.id}', '{reference.citation}', "{utils.data_id()}")""")
+        
+
+    """
+    ##############################################################
+        Data IDs
+    ##############################################################
+    """
+
+    for id in config.data_ids:
+        curs.execute(f"""REPLACE INTO
+                     DataSet(data_id)
+                     VALUES('{id}')""")
+        
 
     conn.commit()
     conn.close()
-
-
-    """
-    ##############################################################
-       References
-    ##############################################################
-    """
-
-    utils.fill_references_table()
 
     print(f"Post-aggregation complete.\n")
 
@@ -450,7 +507,7 @@ def post_process_region(region):
     ##############################################################
     """
 
-    reference = f"{nrcan_ref}; {statcan_ref}"
+    ref = config.refs.get('nrcan_statcan')
         
     ## AEO future stock
     # Copy from NRCan existing stock    
@@ -476,19 +533,30 @@ def post_process_region(region):
             note = f"Assumed same as {nrcan_equivs[e]}"
 
             # Get annual capacity factor from equivalent nrcan tech for which we have data
-            acf = curs.execute(f"SELECT max_acf FROM MaxAnnualCapacityFactor WHERE tech == '{nrcan_tech}' and regions == '{region}'").fetchone()[0]
+            acf = curs.execute(
+                f"""SELECT factor FROM LimitAnnualCapacityFactor
+                WHERE tech == '{nrcan_tech}'
+                AND region == '{region}'
+                AND operator == 'le'"""
+            ).fetchone()
+            if not acf: continue
+            else: acf = acf[0]
 
             for period in config.model_periods:
-                curs.execute(f"""REPLACE INTO
-                                MinAnnualCapacityFactor(regions, periods, tech, output_comm, min_acf, min_acf_notes,
-                                reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                                VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf*0.99}, '{note}',
-                                '{reference}', {base_year}, 2, 1, 1, {utils.dq_time(period, base_year)}, 3, 3)""")
-                curs.execute(f"""REPLACE INTO
-                                MaxAnnualCapacityFactor(regions, periods, tech, output_comm, max_acf, max_acf_notes,
-                                reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                                VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf}, '{note}',
-                                '{reference}', {base_year}, 2, 1, 1, {utils.dq_time(period, base_year)}, 3, 3)""")
+                curs.execute(
+                    f"""REPLACE INTO
+                    LimitAnnualCapacityFactor(region, period, tech, output_comm, operator, factor,
+                    notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                    VALUES('{region}', {period}, '{tech}', '{out_comm}', 'ge', {acf*0.95},
+                    '{note}', '{ref.id}', 1, 1, 3, 3, 3, '{utils.data_id(region)}')"""
+                )
+                curs.execute(
+                    f"""REPLACE INTO
+                    LimitAnnualCapacityFactor(region, period, tech, output_comm, operator, factor,
+                    notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                    VALUES('{region}', {period}, '{tech}', '{out_comm}', 'le', {acf},
+                    '{note}', '{ref.id}', 1, 1, 3, 3, 3, '{utils.data_id(region)}')"""
+                )
          
 
 
@@ -515,6 +583,7 @@ def aggregate_dsd():
     reference = (f"{config.params['resstock']['reference']}; "
                  f"{config.params['weather']['reference']}; "
                  f"{config.params['nrcan_reference']}; ")
+    ref = config.refs.add('dsd', reference)
 
     res_config = pd.read_csv(config.input_files + 'resstock.csv', index_col=0)
     cons = dict() # 8760 hourly energy consumption by state, housing type, and end use, (kWh)
@@ -546,6 +615,8 @@ def aggregate_dsd():
     
     ## Multiply energy consumptions from resstock by province housing stocks, apply weather mapping, then normalise to DSD
     for region in config.model_regions:
+
+        data_id = utils.data_id(region)
 
         print(f"Aggregating DSDs for {region}...")
 
@@ -592,22 +663,35 @@ def aggregate_dsd():
             axs[row, col].set_title(end_use)
             p+=1
 
-            for h, time in config.time.iterrows():
+            data = []
+            for period in config.model_periods:
+                for h, time in config.time.iterrows():
 
-                seas = time['season']
-                tod = time['time_of_day']
+                    seas = time['season']
+                    tod = time['tod']
 
-                if tod == config.time['time_of_day'].iloc[0]:
-                    _note = note
-                    _ref = reference
-                else: _note = _ref = ''
+                    if tod == config.time['tod'].iloc[0]:
+                        data.append([
+                            region, period, seas, tod, demand_comm, dsd[h],
+                            note, ref.id,
+                            1, 3, 2, 1, 3,
+                            data_id,
+                        ])
+                    else:
+                        data.append([
+                            region, period, seas, tod, demand_comm, dsd[h],
+                            None, None,
+                            None, None, None, None, None,
+                            data_id,
+                        ])
 
-                # TODO this dumps 750 MB of note and reference data into the database
-                curs.execute(f"""REPLACE INTO
-                            DemandSpecificDistribution(regions, season_name, time_of_day_name, demand_name, dsd, dsd_notes,
-                            reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                            VALUES('{region}', '{seas}', '{tod}', '{demand_comm}', '{dsd[h]}', '{_note}',
-                            '{_ref}', {weather_year}, 3, 2, 1, {utils.dq_time(base_year, weather_year)}, 3, 3)""")
+            curs.executemany(
+                "REPLACE INTO "
+                "DemandSpecificDistribution(region, period, season, tod, demand_name, dsd, "
+                "notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                data
+            )
 
         pp.tight_layout()
 
@@ -635,8 +719,10 @@ def aggregate_emissions():
     emis_comm = config.params['emission_commodity']
     emis_units = config.params['emission_activity_units']
 
+    ref = config.refs.add('epa', config.params['epa_reference'])
+
     # Get emissions factors for fuels in ktCO2eq/PJ_in
-    emis_fact = utils.get_data('https://www.epa.gov/system/files/documents/2024-02/ghg-emission-factors-hub-2024.xlsx', skiprows=14, nrows=76, index_col=2)
+    emis_fact = utils.get_data('https://www.epa.gov/system/files/other-files/2025-01/ghg-emission-factors-hub-2025.xlsx', skiprows=13, nrows=76, index_col=2)
     emis_fact = emis_fact[['CO2 Factor', 'CH4 Factor', 'N2O Factor']].iloc[1::].dropna()
     emis_fact = emis_fact[pd.to_numeric(emis_fact['CO2 Factor'], errors='coerce').notnull()] # Removing NaN rows
     for fact in emis_fact.columns: emis_fact[fact] = emis_fact[fact].astype(float) * conversion_factors['epa_units'][fact.strip(' Factor')] * conversion_factors['gwp'][fact.strip(' Factor')]
@@ -645,12 +731,12 @@ def aggregate_emissions():
     for tech in config.all_techs:
 
         # Valid vintages and efficiencies from Efficiency table
-        rows = curs.execute(f"SELECT regions, input_comm, tech, vintage, output_comm, efficiency FROM Efficiency WHERE tech == '{tech}'").fetchall()
+        rows = curs.execute(f"SELECT region, input_comm, tech, vintage, output_comm, efficiency FROM Efficiency WHERE tech == '{tech}'").fetchall()
 
         for row in rows:
 
             # Input fuel by epa naming convention
-            epa_fuel = fuel_commodities.loc[fuel_commodities['comm'] == row[1], 'epa_fuel'].iloc[0]
+            epa_fuel = config.fuel_commodities.loc[config.fuel_commodities['comm'] == row[1], 'epa_fuel'].iloc[0]
             if pd.isna(epa_fuel): continue # doesn't need emissions
 
             # EmissionActivity is tied to OUTPUT energy so divide by efficiency
@@ -659,11 +745,13 @@ def aggregate_emissions():
             # Note assumed fuel
             note = f"Emissions factor using {epa_fuel} (EPA, {config.params['epa_year']}) divided by efficiency as emissions are per output unit energy."
 
-            curs.execute(f"""REPLACE INTO
-                        EmissionActivity(regions, emis_comm, input_comm, tech, vintage, output_comm, emis_act, emis_act_units, emis_act_notes,
-                        reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{row[0]}', '{emis_comm}', '{row[1]}', '{row[2]}', {row[3]}, '{row[4]}', {emis_act}, '{emis_units}', '{note}',
-                        '{config.params['epa_reference']}', {config.params['epa_year']}, 2, 1, 1, 1, 1, 3)""")
+            curs.execute(
+                f"""REPLACE INTO
+                EmissionActivity(region, emis_comm, input_comm, tech, vintage, output_comm, activity, units,
+                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                VALUES('{row[0]}', '{emis_comm}', '{row[1]}', '{row[2]}', {row[3]}, '{row[4]}', {emis_act}, '{emis_units}',
+                '{note}', '{ref.id}', 1, 3, 2, 4, 1, '{utils.data_id(row[0])}')"""
+            )
     
 
     conn.commit()
@@ -691,16 +779,20 @@ def aggregate_imports():
         
         description = f"import dummy for {out_comm['description']}"
 
-        curs.execute(f"""REPLACE INTO
-                     technologies(tech, flag, sector, tech_desc)
-                     VALUES('{tech}', 'r', 'residential', '{description}')""")
+        curs.execute(
+            f"""REPLACE INTO
+            Technology(tech, flag, sector, description, data_id)
+            VALUES('{tech}', 'p', 'residential', '{description}', '{utils.data_id()}')"""
+        )
         
         # A single vintage at first model period with no other parameters, classic dummy tech
         for region in config.model_regions:
-            curs.execute(f"""REPLACE INTO
-                        Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes)
-                        VALUES('{region}', '{config.fuel_commodities.loc[row['in_comm'], 'comm']}', '{tech}',
-                        '{config.model_periods[0]}', '{out_comm['comm']}', 1, '{description})')""")
+            curs.execute(
+                f"""REPLACE INTO
+                Efficiency(region, input_comm, tech, vintage, output_comm, efficiency, notes, data_id)
+                VALUES('{region}', '{config.fuel_commodities.loc[row['in_comm'], 'comm']}', '{tech}',
+                '{config.model_periods[0]}', '{out_comm['comm']}', 1, '{description})', '{utils.data_id(region)}')"""
+            )
             
     conn.commit()
     conn.close()
@@ -725,18 +817,18 @@ def cleanup():
     # Get all tables with tech and region indices
     all_tables = [fetch[0] for fetch in curs.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
     t_tables = [table for table in all_tables if 'tech' in [description[0] for description in curs.execute(f"SELECT * FROM '{table}'").description]]
-    tr_tables = [table for table in t_tables if 'regions' in [description[0] for description in curs.execute(f"SELECT * FROM '{table}'").description]]
+    tr_tables = [table for table in t_tables if 'region' in [description[0] for description in curs.execute(f"SELECT * FROM '{table}'").description]]
 
     for region in config.model_regions:
         for tech, row in config.existing_techs.iterrows():
             if row['end_use'] == 'appliances other': continue # Does not have capacity
 
-            exs_cap = sum([fetch[0] for fetch in curs.execute(f"SELECT exist_cap FROM ExistingCapacity WHERE tech == '{tech}' and regions == '{region}'").fetchall()])
+            exs_cap = sum([fetch[0] for fetch in curs.execute(f"SELECT capacity FROM ExistingCapacity WHERE tech == '{tech}' and region == '{region}'").fetchall()])
             if exs_cap == 0:
                 
                 # If no existing capacity for an existing tech, purge tech/region combo from database
                 for table in tr_tables: 
-                    curs.execute(f"DELETE FROM '{table}' WHERE tech == '{tech}' AND regions == '{region}'")
+                    curs.execute(f"DELETE FROM '{table}' WHERE tech == '{tech}' AND region == '{region}'")
 
                 print(f"Cleaned up existing tech with no existing capacity: ({region}, {tech})")
 

@@ -25,7 +25,7 @@ def build_database():
     all_subsectors.aggregate()
 
     # Convert data costs to final currency
-    currency_conversion.convert_currencies()
+    # currency_conversion.convert_currencies()
 
     if config.params['simplify_model']: model_reduction.simplify_model()
     if config.params['clone_to_xlsx']: utils.database_converter().clone_sqlite_to_excel()

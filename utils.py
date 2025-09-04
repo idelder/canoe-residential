@@ -20,35 +20,35 @@ import pickle
 
 
 
-def fill_references_table():
+# def fill_references_table():
 
-    conn = sqlite3.connect(config.database_file)
-    curs = conn.cursor()
+#     conn = sqlite3.connect(config.database_file)
+#     curs = conn.cursor()
 
-    references = set()
+#     references = set()
 
-    # Get all tables
-    all_tables = [fetch[0] for fetch in curs.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
+#     # Get all tables
+#     all_tables = [fetch[0] for fetch in curs.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
 
-    for table in all_tables:
-        if table == 'references': continue
+#     for table in all_tables:
+#         if table == 'references': continue
 
-        # For any table with a reference column
-        cols = [description[0] for description in curs.execute(f"SELECT * FROM '{table}'").description]
-        if 'reference' in cols:
+#         # For any table with a reference column
+#         cols = [description[0] for description in curs.execute(f"SELECT * FROM '{table}'").description]
+#         if 'reference' in cols:
 
-            # Get all the unique references and add them to the set
-            refs = curs.execute(f"SELECT DISTINCT reference FROM '{table}' WHERE length(reference) > 1")
-            for ref in refs:
-                for r in ref[0].split('; '):
-                    references.add(r)
+#             # Get all the unique references and add them to the set
+#             refs = curs.execute(f"SELECT DISTINCT reference FROM '{table}' WHERE length(reference) > 1")
+#             for ref in refs:
+#                 for r in ref[0].split('; '):
+#                     references.add(r)
 
-    # Add all references in the set to the references tables
-    for reference in references:
-        if len(reference) > 1: curs.execute(f"REPLACE INTO 'references'(reference) VALUES('{reference}')")
+#     # Add all references in the set to the references tables
+#     for reference in references:
+#         if len(reference) > 1: curs.execute(f"REPLACE INTO 'references'(reference) VALUES('{reference}')")
 
-    conn.commit()
-    conn.close()
+#     conn.commit()
+#     conn.close()
 
 
 
@@ -74,6 +74,15 @@ def clean_index(df):
 def compr_db_url(region, table_number):
 
     return str(config.params['nrcan_url']).replace('<y>', str(config.params['base_year'])).replace('<r>', region.lower()).replace('<t>', str(table_number))
+
+
+
+# Gets a formatted dataset ID
+def data_id(text: str = ''):
+
+    id = f"{config.params['data_id_prefix']}{text}{config.params['data_version']}"
+    config.data_ids.add(id)
+    return id
 
 
 
@@ -128,7 +137,8 @@ def get_statcan_table(table, save_as=None, **kwargs):
 def get_compr_db(region, table_number, first_row=0, last_row=None) -> pd.DataFrame:
 
     # Get the requested table and discard excess rows, clean up table
-    df = get_data(compr_db_url(region, table_number), skiprows=10)
+    nrcan_region = config.regions.loc[region, 'nrcan_id']
+    df = get_data(compr_db_url(nrcan_region, table_number), skiprows=10)
     df = df.loc[first_row::] if last_row is None else df.loc[first_row:last_row]
     df = df.drop("Unnamed: 0", axis=1).set_index('Unnamed: 1').dropna()
     df.index.name = None

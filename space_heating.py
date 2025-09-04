@@ -43,7 +43,7 @@ def aggregate_region(region):
     note = (f"Sum of {base_year} secondary energy multiplied by efficiency per technology (NRCan, {base_year}). "
             "Dual fuel boilers taken to consume only first listed fuel in this calculation. "
             f"Indexed to projected population (Statcan, {statcan_year})")
-    reference = f"{nrcan_ref}; {statcan_ref}"
+    ref = config.refs.get('nrcan_statcan')
 
     # Table 8: Space Heating Secondary Energy Use by System Type
     t8_sec = utils.get_compr_db(region, 8, 3, 17)
@@ -78,11 +78,13 @@ def aggregate_region(region):
 
     # Write to database
     for period in config.model_periods:
-        curs.execute(f"""REPLACE INTO
-                    Demand(regions, periods, demand_comm, demand, demand_units, demand_notes,
-                    reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                    VALUES('{region}', {period}, '{space_heating['comm']}', {dem.loc[period].iloc[0]}, '({space_heating['dem_unit']})', '{note}',
-                    '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(period, base_year)}, 1, 1)""")
+        curs.execute(
+            f"""REPLACE INTO
+            Demand(region, period, commodity, demand, units,
+            notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+            VALUES('{region}', {period}, '{space_heating['comm']}', {dem.loc[period].iloc[0]}, '({space_heating['dem_unit']})',
+            '{note}', '{ref.id}', 1, 1, 1, 1, 3, '{utils.data_id(region)}')"""
+        )
 
 
 
@@ -91,6 +93,8 @@ def aggregate_region(region):
         Efficiency of existing stock
     ##############################################################
     """
+
+    ref = config.refs.get('nrcan')
 
     tracker = dict() # tracking multiples of the same nrcan fuel type
     for tech, row in config.existing_techs.iterrows():
@@ -127,11 +131,13 @@ def aggregate_region(region):
                 for vint in config.tech_vints[tech]:
                     if vint + config.lifetimes[row['aeo_class']] <= config.model_periods[0]: continue
 
-                    curs.execute(f"""REPLACE INTO
-                        Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
-                        reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{in_comm['comm']}', '{tech}', {vint}, '{space_heating['comm']}', {eff}, '{note}',
-                        '{nrcan_ref}', {base_year}, 1, 1, 1, 1, 1, 1)""")
+                    curs.execute(
+                        f"""REPLACE INTO
+                        Efficiency(region, input_comm, tech, vintage, output_comm, efficiency,
+                        notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                        VALUES('{region}', '{in_comm['comm']}', '{tech}', {vint}, '{space_heating['comm']}', {eff},
+                        '{note}', '{ref.id}', 1, 1, 1, 1, 3, '{utils.data_id(region)}')"""
+                    )
     
             continue
 
@@ -148,6 +154,10 @@ def aggregate_region(region):
             sec_energy = np.array([t8_sec.loc[substock, base_year] for substock in substocks])
             effs = np.array([t26_eff.loc[substock, base_year] for substock in substocks])
 
+            if sum(sec_energy) == 0:
+                print(f"Existing space heating tech {tech} appears unused in {region}")
+                continue
+
             # Efficiency is aggregated by ratios of secondary energy consumption in data year
             # This matches the demand calculation which is efficiency multiplied by secondary energy consumption
             eff = np.dot(effs, sec_energy) / sum(sec_energy)
@@ -162,11 +172,13 @@ def aggregate_region(region):
         for vint in config.tech_vints[tech]:
             if vint + config.lifetimes[row['aeo_class']] <= config.model_periods[0]: continue
             
-            curs.execute(f"""REPLACE INTO
-                Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
-                reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                VALUES('{region}', '{in_comm['comm']}', '{tech}', {vint}, '{space_heating['comm']}', {eff}, '{note}',
-                '{nrcan_ref}', {base_year}, 1, 1, 1, 1, 1, 1)""")
+            curs.execute(
+                f"""REPLACE INTO
+                Efficiency(region, input_comm, tech, vintage, output_comm, efficiency,
+                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                VALUES('{region}', '{in_comm['comm']}', '{tech}', {vint}, '{space_heating['comm']}', {eff},
+                '{note}', '{ref.id}', 1, 1, 1, 1, 3, '{utils.data_id(region)}')"""
+            )
     
 
 
@@ -181,7 +193,6 @@ def aggregate_region(region):
 
     # Notes for database
     note = f"{base_year} stock (NRCan, {base_year}) distributed evenly over feasible preceding vintages."
-    reference = nrcan_ref
 
     # Get existing capacities from NRCan stock and distribute over past vintages
     for tech, row in nrcan_techs.iterrows():
@@ -196,6 +207,9 @@ def aggregate_region(region):
         ## Existing capacity
         # Get existing capacity (stock) from nrcan and index to population growth
         existing_cap = sum([t21_stk.loc[substock, base_year] for substock in substocks])
+        if existing_cap == 0:
+            print(f"No existing capacity for space heating tech {tech} in region {region}")
+            continue
         
         # Distribute existing capacities evenly over feasible vintages
         vints, weights = utils.stock_vintages(base_year, config.lifetimes[row['aeo_class']])
@@ -210,17 +224,19 @@ def aggregate_region(region):
 
             exs_cap = existing_cap * weight
 
-            curs.execute(f"""REPLACE INTO
-                        ExistingCapacity(regions, tech, vintage, exist_cap, exist_cap_units, exist_cap_notes,
-                        reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{tech}', {vint}, {exs_cap}, '({space_heating['cap_unit']})', '{note}',
-                        '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(config.model_periods[0], base_year)}, 1, 1)""")
+            curs.execute(
+                f"""REPLACE INTO
+                ExistingCapacity(region, tech, vintage, capacity, units,
+                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                VALUES('{region}', '{tech}', {vint}, {exs_cap}, '({space_heating['cap_unit']})',
+                '{note}', '{ref.id}', 1, 1, 1, 1, 3, '{utils.data_id(region)}')"""
+            )
         
 
         ## Annual capacity factor for NRCan existing stock
         # (for new stock pulled in all sectors post processing)
         max_note = (f"Annual utilisation of units. (annual secondary energy consumption * efficiency) / (c2a * existing stock) (NRCan, {base_year})")
-        min_note = "99% of MaxACF. " + max_note
+        min_note = "95% of MaxACF. " + max_note
 
         act = sum([activity.loc[substock] for substock in substocks]) # annual PJ output
         c2a = space_heating['c2a']
@@ -231,16 +247,20 @@ def aggregate_region(region):
         for period in config.model_periods:
             if max(vints) + config.lifetimes[row['aeo_class']] <= period: continue
 
-            curs.execute(f"""REPLACE INTO
-                            MinAnnualCapacityFactor(regions, periods, tech, output_comm, min_acf, min_acf_notes,
-                            reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                            VALUES('{region}', {period}, '{tech}', '{space_heating['comm']}', {acf*0.99}, '{min_note}',
-                            '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(period, base_year)}, 1, 1)""")
-            curs.execute(f"""REPLACE INTO
-                            MaxAnnualCapacityFactor(regions, periods, tech, output_comm, max_acf, max_acf_notes,
-                            reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                            VALUES('{region}', {period}, '{tech}', '{space_heating['comm']}', {acf}, '{max_note}',
-                            '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(period, base_year)}, 1, 1)""")
+            curs.execute(
+                f"""REPLACE INTO
+                LimitAnnualCapacityFactor(region, period, tech, output_comm, operator, factor,
+                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                VALUES('{region}', {period}, '{tech}', '{space_heating['comm']}', 'ge', {acf*0.95},
+                '{min_note}', '{ref.id}', 1, 1, 1, 1, 3, '{utils.data_id(region)}')"""
+            )
+            curs.execute(
+                f"""REPLACE INTO
+                LimitAnnualCapacityFactor(region, period, tech, output_comm, operator, factor,
+                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                VALUES('{region}', {period}, '{tech}', '{space_heating['comm']}', 'le', {acf*0.95},
+                '{max_note}', '{ref.id}', 1, 1, 1, 1, 3, '{utils.data_id(region)}')"""
+            )
 
     conn.commit()
     conn.close()
@@ -282,6 +302,8 @@ def aggregate_furnace_fans(region):
         ].index.values
     ]
 
+    ref = config.refs.add('furnace_fans', frn_fan['reference'])
+
     for tech in fan_techs:
         
         vints = config.tech_vints[tech]
@@ -293,20 +315,24 @@ def aggregate_furnace_fans(region):
         for vint in vints:
             if vint + life <= config.model_periods[0]: continue
 
-            curs.execute(f"""REPLACE INTO
-                    Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes, dq_est)
-                    VALUES('{region}', '{elc_comm['comm']}', '{tech}', {vint},
-                    '{elc_comm['comm']}', {eff}, 'arbitrarily small non-zero efficiency', 0)""")
+            curs.execute(
+                f"""REPLACE INTO
+                Efficiency(region, input_comm, tech, vintage, output_comm, efficiency, notes, data_id)
+                VALUES('{region}', '{elc_comm['comm']}', '{tech}', {vint}, '{elc_comm['comm']}', {eff},
+                'arbitrarily small non-zero efficiency'), '{utils.data_id(region)}')"""
+            )
         
         # Set ratio of fan electricity consumption to output heat
         for period in config.model_periods:
             if max(vints) + life <= period: continue
 
-            curs.execute(f"""REPLACE INTO
-                    TechOutputSplit(regions, periods, tech, output_comm, to_split, to_split_notes,
-                    reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                    VALUES('{region}', {period}, '{tech}', '{elc_comm['comm']}', {split}, '{tos_note}',
-                    '{frn_fan['reference']}', {frn_fan['data_year']}, 3, 1, 1, {utils.dq_time(frn_fan['data_year'], period)}, 3, 3)""")
+            curs.execute(
+                f"""REPLACE INTO
+                LimitTechOutputSplit(region, period, tech, output_comm, operator, proportion,
+                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                VALUES('{region}', {period}, '{tech}', '{elc_comm['comm']}', {split},
+                '{tos_note}', '{ref.id}', 4, 3, 3, 3, 4, '{utils.data_id(region)}')"""
+            )
     
 
     conn.commit()

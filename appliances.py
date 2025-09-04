@@ -11,11 +11,6 @@ from setup import config
 
 # Shortens lines a bit
 base_year = config.params['base_year']
-nrcan_ref = config.params['nrcan_reference']
-aeo_ref = config.params['aeo_reference']
-aeo_year = config.params['aeo_data_year']
-statcan_year = config.params['statcan_data_year']
-statcan_ref = config.params['statcan_reference']
 acf = config.params['appliances']['annual_capacity_factor']
 end_use_demands = config.end_use_demands
 fuel_commodities = config.fuel_commodities
@@ -40,7 +35,6 @@ def aggregate_region(region):
     curs = conn.cursor() # Cursor object interacts with the sqlite db
 
 
-
     """
     ##############################################################
         Annual Capacity Factor
@@ -48,8 +42,8 @@ def aggregate_region(region):
     """
 
     ## NRCan existing stock
-    max_note = "Arbitrary annual capacity factor to ensure that peak demand is met."
-    min_note = "99% of MaxACF. " + max_note
+    max_note = "Arbitrary annual capacity factor to ensure that existing capacity is sufficient to meet existing peak demand."
+    min_note = "95% of ACF upper bound for slack. " + max_note
 
     # Get existing capacities from NRCan stock and distribute over past vintages
     for tech, row in exs_techs.iterrows():
@@ -61,12 +55,18 @@ def aggregate_region(region):
             if row['end_use'] == 'appliances other': continue # no capacity expansion so does not apply
             if max(config.tech_vints[tech]) + config.lifetimes[row['aeo_class']] <= period: continue
 
-            curs.execute(f"""REPLACE INTO
-                            MinAnnualCapacityFactor(regions, periods, tech, output_comm, min_acf, min_acf_notes, dq_est)
-                            VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf*0.99}, '{min_note}', 0)""")
-            curs.execute(f"""REPLACE INTO
-                            MaxAnnualCapacityFactor(regions, periods, tech, output_comm, max_acf, max_acf_notes, dq_est)
-                            VALUES('{region}', {period}, '{tech}', '{out_comm}', {acf}, '{max_note}', 0)""")
+            # Lower limit
+            curs.execute(
+                f"""REPLACE INTO
+                LimitAnnualCapacityFactor(region, period, tech, output_comm, operator, factor, notes, data_id)
+                VALUES('{region}', {period}, '{tech}', '{out_comm}', 'ge', {acf*0.95}, '{min_note}', '{utils.data_id(region)}')"""
+            )
+            # Upper limit
+            curs.execute(
+                f"""REPLACE INTO
+                LimitAnnualCapacityFactor(region, period, tech, output_comm, operator, factor, notes, data_id)
+                VALUES('{region}', {period}, '{tech}', '{out_comm}', 'le', {acf}, '{max_note}', '{utils.data_id(region)}')"""
+            )
 
 
 
@@ -77,7 +77,7 @@ def aggregate_region(region):
     """
 
     note = f"{base_year} stock (NRCan, {base_year}) distributed evenly over feasible preceding vintages."
-    reference = nrcan_ref
+    ref = config.refs.get('nrcan')
 
     # Table 31: Appliance Stock by Appliance Type and Energy Source
     t31_elc_stk = utils.get_compr_db(region, 31, 20, 26) # kunit
@@ -106,11 +106,13 @@ def aggregate_region(region):
         for vint in vints:
             if vint + config.lifetimes[row['aeo_class']] <= config.model_periods[0]: continue
 
-            curs.execute(f"""REPLACE INTO
-                        ExistingCapacity(regions, tech, vintage, exist_cap, exist_cap_units, exist_cap_notes,
-                        reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{tech}', {vint}, {exs_cap / len(vints)}, '({config.end_use_demands.loc[row['end_use'], 'cap_unit']})', '{note}',
-                        '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(config.model_periods[0], base_year)}, 1, 1)""")
+            curs.execute(
+                f"""REPLACE INTO
+                ExistingCapacity(region, tech, vintage, capacity, units,
+                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                VALUES('{region}', '{tech}', {vint}, {exs_cap / len(vints)}, '({config.end_use_demands.loc[row['end_use'], 'cap_unit']})',
+                '{note}', '{ref.id}', 1, 1, 1, 1, 3, '{utils.data_id(region)}')"""
+            )
         
 
 
@@ -120,20 +122,24 @@ def aggregate_region(region):
     ##############################################################
     """
 
-    note = (f"Existing capacity multiplied by an arbitrary {acf} annual capacity factor to ensure demand is met in peak hour. "
-            f"Indexed to projected population (Statcan, {statcan_year}).")
-    reference = f"{nrcan_ref}; {statcan_ref}"
+    note = (
+        f"Existing capacity multiplied by an arbitrary {acf} annual capacity factor to ensure existing capacity is "
+        f"sufficient to meet peak demand. Indexed to projected population."
+    )
+    ref = config.refs.get('nrcan_statcan')
 
     for end_use, exs_dem in dems.items():
         for period in config.model_periods:
 
             dem = exs_dem * pop.loc[period].iloc[0] / pop.loc[base_year].iloc[0]
 
-            curs.execute(f"""REPLACE INTO
-                    Demand(regions, periods, demand_comm, demand, demand_units, demand_notes,
-                    reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                    VALUES('{region}', {period}, '{config.end_use_demands.loc[end_use, 'comm']}', {dem}, '({config.end_use_demands.loc[end_use, 'dem_unit']})', '{note}',
-                    '{reference}', {base_year}, 1, 1, 1, {utils.dq_time(period, base_year)}, 1, 1)""")
+            curs.execute(
+                f"""REPLACE INTO
+                Demand(region, period, commodity, demand, units,
+                notes, data_source, data_id)
+                VALUES('{region}', {period}, '{config.end_use_demands.loc[end_use, 'comm']}', {dem}, '({config.end_use_demands.loc[end_use, 'dem_unit']})',
+                '{note}', '{ref.id}', '{utils.data_id(region)}')"""
+            )
         
 
 
@@ -145,6 +151,8 @@ def aggregate_region(region):
 
     # Table 13: Appliance Secondary Energy Use and GHG Emissions by Appliance Type
     t13_sec = utils.get_compr_db("ON", 13, 2, 9) # PJ
+    
+    ref = config.refs.get('nrcan')
 
     ## Efficiency of electricity-only techs from NRCan
     for tech, row in exs_techs.iterrows():
@@ -166,22 +174,26 @@ def aggregate_region(region):
             if row['end_use'] != 'appliances other': # appliances other has no lifetime
                 if vint + config.lifetimes[row['aeo_class']] <= config.model_periods[0]: continue
 
-            curs.execute(f"""REPLACE INTO
-                    Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
-                    reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                    VALUES('{region}', '{fuel_commodities.loc['electricity', 'comm']}', '{tech}', {vint}, '{end_use_demands.loc[row['end_use'], 'comm']}', {eff_exs}, '{note}',
-                    '{nrcan_ref}', {base_year}, 1, 1, 1, 1, 1, 1)""")
+            curs.execute(
+                f"""REPLACE INTO
+                Efficiency(region, input_comm, tech, vintage, output_comm, efficiency, 
+                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                VALUES('{region}', '{fuel_commodities.loc['electricity', 'comm']}', '{tech}', {vint}, '{end_use_demands.loc[row['end_use'], 'comm']}', {eff_exs},
+                '{note}', '{ref.id}', 1, 1, 1, 1, 3, '{utils.data_id(region)}')"""
+            )
 
 
     ## Cooking ranges and clothes dryers
     # A pain to deal with because both natural gas and electricity variants
-    reference = config.params['handbook_reference']
+    ref = config.refs.add('energy_handbook', config.params['handbook_reference'])
 
-    uec_base_year = 2020 # TODO year should be updatable but 2022 download link is broken
+    uec_base_year = 2021 # TODO year should be 2022 but download link is broken
 
     # Generic unit energy consumption of nrcan technologies
     hb_uec = utils.get_data(f"https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/data_e/downloads/handbook/Excel/{uec_base_year}/res_00_16_e.xls", skiprows=7)
-    hb_uec: pd.DataFrame = hb_uec.drop('Unnamed: 0', axis=1).set_index('Unnamed: 1').dropna().astype(float, errors='ignore') * config.params['conversion_factors']['activity']['kwh'] * 1000 # /unity to /kunity
+    hb_uec: pd.DataFrame = hb_uec.drop('Unnamed: 0', axis=1).set_index('Unnamed: 1').dropna().astype(float, errors='ignore')
+    hb_uec *= config.params['conversion_factors']['activity']['kwh'] * 1000 # /unity to /kunity
+    hb_uec = hb_uec.drop(hb_uec.columns[-1], axis='columns') # totals column
     utils.clean_index(hb_uec)
     hb_uec.columns = [int(col) for col in hb_uec.columns]
     hb_uec_elc = hb_uec.iloc[8:14]
@@ -212,11 +224,13 @@ def aggregate_region(region):
             for vint in vints:
                 if vint + config.lifetimes[exs_techs.loc[techs[f],'aeo_class']] <= config.model_periods[0]: continue
                 
-                curs.execute(f"""REPLACE INTO
-                        Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
-                        reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', '{fuel['comm']}', '{techs[f]}', {vint}, '{config.end_use_demands.loc[row['end_use'], 'comm']}', {eff_exs}, '{note}',
-                        '{reference}', {uec_base_year}, 3, 2, 1, 1, 3, 1)""")
+                curs.execute(
+                    f"""REPLACE INTO
+                    Efficiency(region, input_comm, tech, vintage, output_comm, efficiency,
+                    notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                    VALUES('{region}', '{fuel['comm']}', '{techs[f]}', {vint}, '{config.end_use_demands.loc[row['end_use'], 'comm']}', {eff_exs},
+                    '{note}', '{ref.id}', 1, 3, 1, 3, 3, '{utils.data_id(region)}')"""
+                )
             
 
 
@@ -226,7 +240,7 @@ def aggregate_region(region):
     ##############################################################
     """
 
-    reference = f"{nrcan_ref}; {aeo_ref}"
+    ref = config.refs.add('nrcan_aeo', f"{config.params['nrcan_reference']}; {config.params['aeo_reference']}")
 
     # AEO data relevant to this region
     df0 = aeo_res_equip.loc[(aeo_res_equip['Census Division'] == config.regions.loc[region, 'us_census_div']) | (aeo_res_equip['Census Division'] == 11)]
@@ -241,10 +255,12 @@ def aggregate_region(region):
         # Get baseline efficiency from existing stock
         nrcan_tech = exs_techs.loc[exs_techs['end_use'] + " - " + exs_techs['description'] == row['nrcan_equiv']].index.values[0]
         base_eff = aeo_res_class.loc[row['aeo_class'], 'Base Efficiency']
-        eff_exs = curs.execute(f"SELECT efficiency FROM Efficiency WHERE regions == '{region}' and tech == '{nrcan_tech}'").fetchone()[0]
+        eff_exs = curs.execute(f"SELECT efficiency FROM Efficiency WHERE region == '{region}' and tech == '{nrcan_tech}'").fetchone()[0]
 
-        note = (f"(kunity/PJ) Efficiency assumed same as {nrcan_tech} "
-                f"but indexed to relative efficiency for this vintage versus baseline efficiency from AEO data (AEO, {aeo_year}).")
+        note = (
+            f"(kunity/PJ) Efficiency assumed same as {nrcan_tech} "
+            f"but indexed to relative efficiency for this vintage versus baseline efficiency from AEO data."
+        )
 
         vints = config.tech_vints[tech]
         for vint in vints:
@@ -257,11 +273,13 @@ def aggregate_region(region):
             else: eff = eff_exs * base_eff / new_eff # efficiency units are energy consumption so invert
 
             # Write to table
-            curs.execute(f"""REPLACE INTO
-                    Efficiency(regions, input_comm, tech, vintage, output_comm, efficiency, eff_notes,
-                    reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                    VALUES('{region}', '{fuel_commodities.loc[row['fuel'], 'comm']}', '{tech}', {vint}, '{end_use_demands.loc[row['end_uses'], 'comm']}', {eff}, '{note}',
-                    '{aeo_ref}', {aeo_year}, 3, 2, 1, 1, 3, 3)""")
+            curs.execute(
+                f"""REPLACE INTO
+                Efficiency(region, input_comm, tech, vintage, output_comm, efficiency,
+                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                VALUES('{region}', '{fuel_commodities.loc[row['fuel'], 'comm']}', '{tech}', {vint}, '{end_use_demands.loc[row['end_uses'], 'comm']}', {eff},
+                '{note}', '{ref.id}', 1, 3, 1, 3, 3, '{utils.data_id(region)}')"""
+            )
 
     conn.commit()
     conn.close()

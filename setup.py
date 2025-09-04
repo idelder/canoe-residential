@@ -27,15 +27,63 @@ def instantiate_database():
     elif config.params['force_wipe_database']:
         tables = [t[0] for t in curs.execute("""SELECT name FROM sqlite_master WHERE type='table';""").fetchall()]
         for table in tables: curs.execute(f"DELETE FROM '{table}'")
+        curs.executescript(open(config.schema_file, 'r').read())
         print("Database wiped prior to aggregation. See params.\n")
-    
+
     conn.commit()
 
     # VACUUM operation to clean up any empty rows
-    curs.execute("VACUUM;")
+    conn.execute("VACUUM;")
     conn.commit()
 
     conn.close()
+
+
+
+class reference:
+    """
+    Stores a single reference and its attributes
+    - id: the unique id for the source_id column
+    - citation: the full citation to go in the DataSource table
+    """
+
+    id: str
+    citation: str
+
+    def __init__(self, id: str, citation: str):
+        self.id = id
+        self.citation = citation
+
+
+class bibliography:
+    """This class stores references and handles unique indexing"""
+
+    references: dict[str, reference] = dict()
+
+    def __iter__(self):
+        for name, ref in self.references.items():
+            yield ref
+
+    def add(cls, name: str, citation: str) -> reference | None:
+        """Add a reference to the log and return the reference object"""
+
+        if name in cls.references:
+            return cls.references[name]
+        else:
+            num = len(cls.references.keys()) + 1
+            id = f"E{num}" if num >= 10 else f"E0{num}" # E01 -> E99 unique IDs
+            ref = reference(id=id, citation=citation)
+            cls.references[name] = ref
+            return ref
+    
+    def get(cls, name: str) -> reference | None:
+        """Returns a reference by its semantic name"""
+
+        if name not in cls.references:
+            print(f"Tried to get a reference that had not been added yet: {name}")
+            return
+        else:
+            return cls.references[name]
 
 
 
@@ -47,6 +95,9 @@ class config:
     cache_dir = _this_dir + "data_cache/"
 
     if not os.path.exists(cache_dir): os.mkdir(cache_dir)
+
+    refs: bibliography = bibliography()
+    data_ids = set()
 
     tech_vints = {}
     lifetimes = {}
@@ -64,6 +115,7 @@ class config:
         cls._get_aeo_data(cls._instance)
         cls._get_population_projections(cls._instance)
         cls._get_rninja_api(cls._instance)
+        cls._add_references(cls._instance)
 
         print('Instantiated setup config.\n')
 
@@ -108,6 +160,15 @@ class config:
                                              sheet_name='RSCLASS', skiprows=19, nrows=31, index_col=20).iloc[1:,1:20]
         config.aeo_res_equip = pd.read_excel(config.input_files + 'rsmess.xlsx',
                                              sheet_name='RSMEQP', skiprows=21, nrows=867, index_col=29).iloc[2:,2:29]
+        
+
+    
+    def _add_references(cls):
+        """Adds some very commonly used references to the bibliography"""
+        config.refs.add('nrcan', config.params['nrcan_reference'])
+        config.refs.add('aeo', config.params['aeo_reference'])
+        config.refs.add('statcan', config.params['statcan_reference'])
+        config.refs.add('nrcan_statcan', f"{config.params['nrcan_reference']}; {config.params['statcan_reference']}")
         
 
     
