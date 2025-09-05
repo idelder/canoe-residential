@@ -124,7 +124,7 @@ def pre_process():
         curs.execute(
             f"""REPLACE INTO
             Commodity(name, flag, description, data_id)
-            VALUES('{row['comm']}', 'p', '(PJ) {row['description']}', '{utils.data_id()}')"""
+            VALUES('{row['comm']}', '{row['flag']}', '(PJ) {row['description']}', '{utils.data_id()}')"""
         )
     for _end_use, row in end_use_demands.iterrows():
         curs.execute(
@@ -182,6 +182,13 @@ def pre_process():
             VALUES('{tech}', 'p', 'residential', '{tech_desc}', '{utils.data_id()}')"""
         )
 
+        for flag in row['flags'].split(','):
+            curs.execute(
+                f"""UPDATE Technology
+                SET {flag} == 1
+                WHERE tech == '{tech}'"""
+            )
+
         # Add future vintages to vintage dictionary
         config.tech_vints[tech] = config.model_periods
 
@@ -193,11 +200,19 @@ def pre_process():
     for tech, row in nrcan_techs.iterrows():
 
         tech_desc = f"{row.loc['end_use']} - {row.loc['description']}"
+
         curs.execute(
             f"""REPLACE INTO
             Technology(tech, flag, sector, description, data_id)
             VALUES('{tech}', 'p', 'residential', '{tech_desc}', '{utils.data_id()}')"""
         )
+
+        for flag in row['flags'].split(','):
+            curs.execute(
+                f"""UPDATE Technology
+                SET {flag} == 1
+                WHERE tech == '{tech}'"""
+            )
 
         # Get equivalent future tech
         aeo_class = row.loc['aeo_class']
@@ -769,6 +784,16 @@ def aggregate_imports():
     # Get which fuel commodities are actually being used
     used_comms = set([c[0] for c in curs.execute(f"SELECT input_comm FROM Efficiency").fetchall()])
 
+    # Get the last period the import is used in this region and convert to a lifetime, to prevent supply orphans
+    df_life = pd.read_sql_query("SELECT region, tech, lifetime FROM LifetimeTech", conn).set_index(['region','tech']).astype(int)
+    df_eff = pd.read_sql_query("SELECT region, input_comm, tech, vintage FROM Efficiency", conn)
+    df_eff = df_eff.loc[df_eff['tech'].isin(df_life.index.get_level_values('tech'))]
+    df_eff['life'] = [
+        row['vintage'] + df_life.loc[(row['region'], row['tech'])].iloc[0] - config.model_periods[0]
+        for (_, row) in df_eff.iterrows()
+    ]
+    df_life = df_eff.groupby(['region','input_comm'])['life'].max().astype(int)
+
     for tech, row in config.import_techs.iterrows():
         
         # Get CANOE nomenclature for imported commodity
@@ -784,15 +809,35 @@ def aggregate_imports():
             Technology(tech, flag, sector, description, data_id)
             VALUES('{tech}', 'p', 'residential', '{description}', '{utils.data_id()}')"""
         )
+
+        for flag in row['flags'].split(','):
+            curs.execute(
+                f"""UPDATE Technology
+                SET {flag} == 1
+                WHERE tech == '{tech}'"""
+            )
         
-        # A single vintage at first model period with no other parameters, classic dummy tech
         for region in config.model_regions:
+
+            if (region, out_comm['comm']) not in df_life.index: continue
+            
+            # The dummy needs to retire when it is no longer used
+            # (or it will be orphaned and removed by network checks)
+            life = df_life.loc[(region, out_comm['comm'])]
+
             curs.execute(
                 f"""REPLACE INTO
                 Efficiency(region, input_comm, tech, vintage, output_comm, efficiency, notes, data_id)
                 VALUES('{region}', '{config.fuel_commodities.loc[row['in_comm'], 'comm']}', '{tech}',
                 '{config.model_periods[0]}', '{out_comm['comm']}', 1, '{description})', '{utils.data_id(region)}')"""
             )
+            
+            if life < config.model_periods[-1] - config.model_periods[0]:
+                curs.execute(
+                    f"""REPLACE INTO
+                    LifetimeTech(region, tech, lifetime, notes, data_id)
+                    VALUES("{region}", "{tech}", "{life}", "(y) retires when no longer used", "{utils.data_id(region)}")"""
+                )
             
     conn.commit()
     conn.close()

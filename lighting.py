@@ -100,7 +100,7 @@ def aggregate_region(region):
     for code, row in aeo_techs.iterrows():
 
         if not row['include_new']: continue
-
+        
         for period in config.model_periods:
 
             curs.execute(
@@ -211,8 +211,8 @@ def aggregate_region(region):
         
         tech_desc = f"lighting - {exs.loc['description']}"
         curs.execute(f"""REPLACE INTO
-                    Technology(tech, flag, sector, description, data_id)
-                    VALUES('{exs['tech']}', 'p', 'residential', '{tech_desc}', '{utils.data_id()}')""")
+                    Technology(tech, flag, sector, annual, description, data_id)
+                    VALUES('{exs['tech']}', 'p', 'residential', 1, '{tech_desc}', '{utils.data_id()}')""")
         curs.execute(f"""REPLACE INTO
                     LifetimeTech(region, tech, lifetime,
                     notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
@@ -226,14 +226,14 @@ def aggregate_region(region):
                 f"""REPLACE INTO
                 LimitAnnualCapacityFactor(region, period, tech, output_comm, operator, factor,
                 notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
-                VALUES('{region}', {period}, '{row['tech']}', '{lighting['comm']}', 'ge', {acf*0.95},
+                VALUES('{region}', {period}, '{exs['tech']}', '{lighting['comm']}', 'ge', {acf*0.95},
                 '{min_note}', '{ref.id}', 1, 3, 2, 2, 4, '{utils.data_id(region)}')"""
             )
             curs.execute(
                 f"""REPLACE INTO
                 LimitAnnualCapacityFactor(region, period, tech, output_comm, operator, factor,
                 notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
-                VALUES('{region}', {period}, '{row['tech']}', '{lighting['comm']}', 'le', {acf},
+                VALUES('{region}', {period}, '{exs['tech']}', '{lighting['comm']}', 'le', {acf},
                 '{acf_note}', '{ref.id}', 1, 3, 2, 2, 4, '{utils.data_id(region)}')"""
             )
 
@@ -301,8 +301,8 @@ def aggregate_region(region):
         tech_desc = f"lighting - {aeo['description']}"
         curs.execute(
             f"""REPLACE INTO
-            Technology(tech, flag, sector, description, data_id)
-            VALUES('{aeo['tech']}', 'p', 'residential', '{tech_desc}', '{utils.data_id()}')"""
+            Technology(tech, flag, sector, annual, description, data_id)
+            VALUES('{aeo['tech']}', 'p', 'residential', 1, '{tech_desc}', '{utils.data_id()}')"""
         )
 
         # Vintages for new stock are model periods
