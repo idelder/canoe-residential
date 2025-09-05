@@ -1,27 +1,27 @@
-﻿tech,nrcan_stocks,nrcan_fuels,end_use,description,aeo_class,fuels,,
-R_SPH_OIL-EXS,heating oil – normal efficiency+heating oil – medium efficiency+heating oil – high efficiency,heating oil – normal efficiency+heating oil – medium efficiency+heating oil – high efficiency,space heating,oil - existing,DIST_FA,oil,,space heating - oil - existing
-R_SPH_NG-EXS,natural gas – normal efficiency+natural gas – medium efficiency+natural gas – high efficiency,natural gas – normal efficiency+natural gas – medium efficiency+natural gas – high efficiency,space heating,natural gas - existing,NG_FA,natural gas,,space heating - natural gas - existing
-R_SPH_ELEC-EXS,electric,electric,space heating,electric - existing,ELEC_RAD,electricity,,space heating - electric - existing
-R_SPH_HP-EXS,heat pump,heat pump,space heating,heat pump - existing,ELEC_HP,electricity,,space heating - heat pump - existing
-R_SPH_OTH-EXS,other,other,space heating,other (LPG) - existing,LPG_FA,lpg,,space heating - other (LPG) - existing
-R_SPH_WOOD-EXS,wood,wood,space heating,wood - existing,WOOD_HT,wood,,space heating - wood - existing
-R_SPH_WOOD-ELC-EXS,wood/electric,wood+electricity,space heating,dual wood-electric - existing,WOOD_HT,wood+electricity,,space heating - dual wood-electric - existing
-R_SPH_WOOD-OIL-EXS,wood/heating oil,heating oil+wood,space heating,dual wood-oil - existing,DIST_FA,wood+oil,,space heating - dual wood-oil - existing
-R_SPH_NG-ELC-EXS,natural gas/electric,natural gas+electricity,space heating,dual natural gas-electric - existing,NG_FA,natural gas+electricity,,space heating - dual natural gas-electric - existing
-R_SPH_OIL-ELC-EXS,heating oil/electric,heating oil+electricity,space heating,dual oil-electric - existing,DIST_FA,oil+electricity,,space heating - dual oil-electric - existing
-R_SPC_ROOM_AC-EXS,room,,space cooling,room air conditioning - existing,ROOM_AIR,electricity,,space cooling - room air conditioning - existing
-R_SPC_CENT_AC-EXS,central,,space cooling,central air conditioning - existing,CENT_AIR,electricity,,space cooling - central air conditioning - existing
-R_WAH_ELC-EXS,electricity,,water heating,electric - existing,ELEC_WH,electricity,,water heating - electric - existing
-R_WAH_NG-EXS,natural gas,,water heating,natural gas - existing,NG_WH,natural gas,,water heating - natural gas - existing
-R_WAH_OIL-EXS,heating oil,,water heating,oil - existing,DIST_WH,oil,,water heating - oil - existing
-R_WAH_LPG-EXS,other,,water heating,other (LPG) - existing,LPG_WH,lpg,,water heating - other (LPG) - existing
-R_WAH_WOOD-EXS,wood,,water heating,wood - existing,WOOD_HT,wood,,water heating - wood - existing
-R_APP_CL_WASH-EXS,clothes washer,,appliances clothes washers,clothes washers - existing,CL_WASH,electricity,,appliances clothes washers - clothes washers - existing
-R_APP_DS_WASH-EXS,dishwasher,,appliances dish washers,dish washers - existing,DS_WASH,electricity,,appliances dish washers - dish washers - existing
-R_APP_COOK_ELEC-EXS,range,,appliances cooking ranges,electric cooking ranges - existing,ELEC_STV,electricity,,appliances cooking ranges - electric cooking ranges - existing
-R_APP_DRY_ELEC-EXS,clothes dryer,,appliances clothes dryers,electric clothes dryers - existing,ELEC_DRY,electricity,,appliances clothes dryers - electric clothes dryers - existing
-R_APP_FREZ-EXS,freezer,,appliances freezers,freezers - existing,FREZ,electricity,,appliances freezers - freezers - existing
-R_APP_REFR-EXS,refrigerator,,appliances refrigerators,refrigerators - existing,REFR,electricity,,appliances refrigerators - refrigerators - existing
-R_APP_COOK_NG-EXS,range,,appliances cooking ranges,natural gas cooking ranges - existing,NG_STV,natural gas,,appliances cooking ranges - natural gas cooking ranges - existing
-R_APP_DRY_NG-EXS,clothes dryer,,appliances clothes dryers,natural gas clothes dryers - existing,NG_DRY,natural gas,,appliances clothes dryers - natural gas clothes dryers - existing
-R_APP_OTH,other appliances,,appliances other,other electrical appliances and devices,,electricity,,appliances other - other electrical appliances and devices
+﻿tech,nrcan_stocks,nrcan_fuels,end_use,description,aeo_class,fuels,flags
+R_SPH_OIL-EXS,heating oil – normal efficiency+heating oil – medium efficiency+heating oil – high efficiency,heating oil – normal efficiency+heating oil – medium efficiency+heating oil – high efficiency,space heating,oil - existing,DIST_FA,oil,annual
+R_SPH_NG-EXS,natural gas – normal efficiency+natural gas – medium efficiency+natural gas – high efficiency,natural gas – normal efficiency+natural gas – medium efficiency+natural gas – high efficiency,space heating,natural gas - existing,NG_FA,natural gas,annual
+R_SPH_ELEC-EXS,electric,electric,space heating,electric - existing,ELEC_RAD,electricity,annual
+R_SPH_HP-EXS,heat pump,heat pump,space heating,heat pump - existing,ELEC_HP,electricity,annual
+R_SPH_OTH-EXS,other,other,space heating,other (LPG) - existing,LPG_FA,lpg,annual
+R_SPH_WOOD-EXS,wood,wood,space heating,wood - existing,WOOD_HT,wood,annual
+R_SPH_WOOD-ELC-EXS,wood/electric,wood+electricity,space heating,dual wood-electric - existing,WOOD_HT,wood+electricity,annual
+R_SPH_WOOD-OIL-EXS,wood/heating oil,heating oil+wood,space heating,dual wood-oil - existing,DIST_FA,wood+oil,annual
+R_SPH_NG-ELC-EXS,natural gas/electric,natural gas+electricity,space heating,dual natural gas-electric - existing,NG_FA,natural gas+electricity,annual
+R_SPH_OIL-ELC-EXS,heating oil/electric,heating oil+electricity,space heating,dual oil-electric - existing,DIST_FA,oil+electricity,annual
+R_SPC_ROOM_AC-EXS,room,,space cooling,room air conditioning - existing,ROOM_AIR,electricity,annual
+R_SPC_CENT_AC-EXS,central,,space cooling,central air conditioning - existing,CENT_AIR,electricity,annual
+R_WAH_ELC-EXS,electricity,,water heating,electric - existing,ELEC_WH,electricity,annual
+R_WAH_NG-EXS,natural gas,,water heating,natural gas - existing,NG_WH,natural gas,annual
+R_WAH_OIL-EXS,heating oil,,water heating,oil - existing,DIST_WH,oil,annual
+R_WAH_LPG-EXS,other,,water heating,other (LPG) - existing,LPG_WH,lpg,annual
+R_WAH_WOOD-EXS,wood,,water heating,wood - existing,WOOD_HT,wood,annual
+R_APP_CL_WASH-EXS,clothes washer,,appliances clothes washers,clothes washers - existing,CL_WASH,electricity,annual
+R_APP_DS_WASH-EXS,dishwasher,,appliances dish washers,dish washers - existing,DS_WASH,electricity,annual
+R_APP_COOK_ELEC-EXS,range,,appliances cooking ranges,electric cooking ranges - existing,ELEC_STV,electricity,annual
+R_APP_DRY_ELEC-EXS,clothes dryer,,appliances clothes dryers,electric clothes dryers - existing,ELEC_DRY,electricity,annual
+R_APP_FREZ-EXS,freezer,,appliances freezers,freezers - existing,FREZ,electricity,annual
+R_APP_REFR-EXS,refrigerator,,appliances refrigerators,refrigerators - existing,REFR,electricity,annual
+R_APP_COOK_NG-EXS,range,,appliances cooking ranges,natural gas cooking ranges - existing,NG_STV,natural gas,annual
+R_APP_DRY_NG-EXS,clothes dryer,,appliances clothes dryers,natural gas clothes dryers - existing,NG_DRY,natural gas,annual
+R_APP_OTH,other appliances,,appliances other,other electrical appliances and devices,,electricity,"annual,unlim_cap"

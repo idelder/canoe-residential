@@ -1,6 +1,6 @@
-﻿tech,in_comm,out_comm
-R_IMP_OIL,ethos,oil
-R_IMP_NG,ethos,natural gas
-R_IMP_ELC,elc_dx,electricity
-R_IMP_LPG,ethos,lpg
-R_IMP_WOOD,ethos,wood
+﻿tech,in_comm,out_comm,flags
+R_IMP_OIL,ethos,oil,"annual,unlim_cap"
+R_IMP_NG,ethos,natural gas,"annual,unlim_cap"
+R_IMP_ELC,elc_dem,electricity,unlim_cap
+R_IMP_LPG,ethos,lpg,"annual,unlim_cap"
+R_IMP_WOOD,ethos,wood,"annual,unlim_cap"

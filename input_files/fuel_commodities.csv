@@ -1,8 +1,8 @@
-﻿fuel,comm,description,unit,epa_fuel
-oil,R_oil,heating oil in the residential sector,PJ,Distillate Fuel Oil No. 2
-natural gas,R_ng,natural gas in the residential sector,PJ,Natural Gas
-electricity,R_elc,electricity in the residential sector,PJ,
-lpg,R_lpg,lpg in the residential sector,PJ,Liquefied Petroleum Gases (LPG)
-wood,R_wood,wood in the residential sector,PJ,North American Hardwood
-ethos,R_ethos,dummy input - residential,PJ,
-elc_dx,E_elc_dx,distribution-side electricity from the electricity sector,PJ,
+﻿fuel,comm,flag,description,unit,epa_fuel
+oil,R_oil,a,heating oil in the residential sector,PJ,Distillate Fuel Oil No. 2
+natural gas,R_ng,a,natural gas in the residential sector,PJ,Natural Gas
+electricity,R_elc,p,electricity in the residential sector,PJ,
+lpg,R_lpg,a,lpg in the residential sector,PJ,Liquefied Petroleum Gases (LPG)
+wood,R_wood,a,wood in the residential sector,PJ,North American Hardwood
+ethos,R_ethos,s,dummy input - residential,PJ,
+elc_dem,E_elc_dem,s,distribution-side electricity from the electricity sector,PJ,
