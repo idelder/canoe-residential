@@ -15,7 +15,7 @@ weather_year: 2018 # For normalised timeseries data only
 base_year: 2022 # Default year to pull data from
 timezone: 'EST'
 
-data_id_prefix: 'ELCHR'
+data_id_prefix: 'RESHR'
 data_version: '001'
 
 global_discount_rate: 0.05
@@ -29,9 +29,9 @@ inflation_index: 'gdp_deflator' # gdp_deflator, general_cpi, energy_and_petroleu
 # For computational reasons
 dsd_tolerance: 0.02
 
-sqlite_schema: "canoe_dataset_schema.sql"
+sqlite_schema: "input_files/canoe_dataset_schema.sql"
 sqlite_database: "residential.sqlite"
-excel_template: "Template spreadsheet (make a copy).xlsx"
+excel_template: "input_files/Template spreadsheet (make a copy).xlsx"
 excel_output: "residential.xlsx"
 
 ## Aggregation switches
@@ -40,7 +40,7 @@ force_generate_weather_maps: false # Force regeneration of weather maps instead 
 force_download: false # Forces downloading data again instead of using cached versions
 show_plots: true
 include_dsd: true # Aggregating DSDs is slow
-include_imports: true # Aggregates dummy import technologies for fuels
+include_imports: false # Aggregates dummy import technologies for fuels
 include_emissions: false
 include_furnace_fans: false # Whether to include electricity consumption of fans in space heating
 simplify_model: false # Reduces to simple model. Current behaviour wipes DSDs so might as well skip those
