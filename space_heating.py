@@ -258,7 +258,7 @@ def aggregate_region(region):
                 f"""REPLACE INTO
                 LimitAnnualCapacityFactor(region, period, tech, output_comm, operator, factor,
                 notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
-                VALUES('{region}', {period}, '{tech}', '{space_heating['comm']}', 'le', {acf*0.95},
+                VALUES('{region}', {period}, '{tech}', '{space_heating['comm']}', 'le', {acf},
                 '{max_note}', '{ref.id}', 1, 1, 1, 1, 3, '{utils.data_id(region)}')"""
             )
 
