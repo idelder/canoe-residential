@@ -71,7 +71,7 @@ class bibliography:
             return cls.references[name]
         else:
             num = len(cls.references.keys()) + 1
-            id = f"E{num}" if num >= 10 else f"E0{num}" # E01 -> E99 unique IDs
+            id = f"R{num}" if num >= 10 else f"R0{num}" # R01 -> R99 unique IDs
             ref = reference(id=id, citation=citation)
             cls.references[name] = ref
             return ref
