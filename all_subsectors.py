@@ -485,9 +485,11 @@ def post_process():
 
     # Add all references in the bibliography to the references tables
     for reference in config.refs:
-        curs.execute(f"""REPLACE INTO
-                     DataSource(source_id, source, data_id)
-                     VALUES('{reference.id}', '{reference.citation}', "{utils.data_id()}")""")
+        curs.execute(
+            f"""REPLACE INTO
+            DataSource(source_id, source, data_id)
+            VALUES('{reference.id}', '{reference.citation}', "{utils.data_id()}")"""
+        )
         
 
     """
@@ -496,10 +498,12 @@ def post_process():
     ##############################################################
     """
 
-    for id in config.data_ids:
-        curs.execute(f"""REPLACE INTO
-                     DataSet(data_id)
-                     VALUES('{id}')""")
+    for id in sorted(config.data_ids):
+        curs.execute(
+            f"""REPLACE INTO
+            DataSet(data_id)
+            VALUES('{id}')"""
+        )
         
 
     conn.commit()
