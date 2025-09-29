@@ -210,14 +210,24 @@ def aggregate_region(region):
         aeo_note = f"Assumed same as {aeo_techs.loc[code, 'tech']}."
         
         tech_desc = f"lighting - {exs.loc['description']}"
-        curs.execute(f"""REPLACE INTO
-                    Technology(tech, flag, sector, annual, description, data_id)
-                    VALUES('{exs['tech']}', 'p', 'residential', 1, '{tech_desc}', '{utils.data_id()}')""")
-        curs.execute(f"""REPLACE INTO
-                    LifetimeTech(region, tech, lifetime,
-                    notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
-                    VALUES('{region}', '{exs['tech']}', {lifetime},
-                    '(y) {aeo_note}', '{ref.id}', 1, 3, 2, 2, 3, '{utils.data_id(region)}')""")
+        curs.execute(
+            f"""REPLACE INTO
+            Technology(tech, flag, sector, annual, description, data_id)
+            VALUES('{exs['tech']}', 'p', 'residential', 1, '{tech_desc}', '{utils.data_id()}')"""
+        )
+        unit = f"{lighting['dem_unit']}/{lighting['cap_unit']}.y" # ACT/CAP.y
+        curs.execute(
+            f"""REPLACE INTO
+            CapacityToActivity(region, tech, c2a, notes, data_id)
+            VALUES('{region}', '{exs['tech']}', 1, '({unit})', '{utils.data_id(region)}')"""
+        )
+        curs.execute(
+            f"""REPLACE INTO
+            LifetimeTech(region, tech, lifetime,
+            notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+            VALUES('{region}', '{exs['tech']}', {lifetime},
+            '(y) {aeo_note}', '{ref.id}', 1, 3, 2, 2, 3, '{utils.data_id(region)}')"""
+        )
 
         for period in config.model_periods:
             if max(vints) + lifetime <= period: continue
