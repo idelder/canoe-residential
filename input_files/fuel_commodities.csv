@@ -5,4 +5,3 @@ electricity,R_elc,p,electricity in the residential sector,PJ,
 lpg,R_lpg,a,lpg in the residential sector,PJ,Liquefied Petroleum Gases (LPG)
 wood,R_wood,a,wood in the residential sector,PJ,North American Hardwood
 ethos,R_ethos,s,dummy input - residential,PJ,
-elc_dem,E_elc_dem,s,distribution-side electricity from the electricity sector,PJ,
