@@ -46,7 +46,7 @@ def aggregate():
 
     if config.params['include_dsd']: aggregate_dsd()
     if config.params['include_emissions']: aggregate_emissions()
-    if config.params['include_imports']: aggregate_imports()
+    # if config.params['include_imports']: aggregate_imports() # no longer supported
 
     post_process()
 
