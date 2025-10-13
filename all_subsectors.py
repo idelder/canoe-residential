@@ -132,13 +132,14 @@ def pre_process():
             Commodity(name, flag, description, data_id)
             VALUES('{row['comm']}', 'd', '(PJ) {row['description']}', '{utils.data_id()}')"""
         )
-        
-    # CO2-equivalent emission commodity
-    curs.execute(
-        f"""REPLACE INTO
-        Commodity(name, flag, description, data_id)
-        VALUES('{config.params['emission_commodity']}', 'e', '(ktCO2eq) CO2-equivalent emissions', '{utils.data_id()}')"""
-    )
+    
+    if config.params['include_emissions']:
+        # CO2-equivalent emission commodity
+        curs.execute(
+            f"""REPLACE INTO
+            Commodity(name, flag, description, data_id)
+            VALUES('{config.params['emission_commodity']}', 'e', '(ktCO2eq) CO2-equivalent emissions', '{utils.data_id()}')"""
+        )
 
 
 
