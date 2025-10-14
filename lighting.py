@@ -207,6 +207,12 @@ def aggregate_region(region):
         vints, weights = utils.stock_vintages(base_year, lifetime)
         if max(vints) + lifetime <= config.model_periods[0]: continue # this technology never reaches the first model period
 
+        existing_cap = exs['existing_capacity']
+
+        if existing_cap == 0:
+            print(f"No existing capacity for lighting tech {exs['tech']} in region {region}. Skipped.")
+            continue
+
         aeo_note = f"Assumed same as {aeo_techs.loc[code, 'tech']}."
         
         tech_desc = f"lighting - {exs.loc['description']}"
@@ -258,6 +264,8 @@ def aggregate_region(region):
 
             if vint + lifetime <= config.model_periods[0]: continue
 
+            exs_cap = existing_cap * weight
+
             note = (f"Ontario existing stock of residential bulb types by housing type (IESO, 2018) "
                     f"multiplied by housing stock by type (NRCan, {base_year}). "
                     f"Indexed to relative usage of bulb types by province versus Ontario (Statcan, 2018) "
@@ -272,7 +280,7 @@ def aggregate_region(region):
                 f"""REPLACE INTO
                 ExistingCapacity(region, tech, vintage, capacity, units,
                 notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
-                VALUES('{region}', '{exs['tech']}', {vint}, {exs['existing_capacity'] * weight}, '({lighting['cap_unit']})',
+                VALUES('{region}', '{exs['tech']}', {vint}, {exs_cap}, '({lighting['cap_unit']})',
                 '{note}', '{ref.id}', 1, 2, 3, 3, 4, '{utils.data_id(region)}')"""
             )
             

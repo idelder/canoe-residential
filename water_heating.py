@@ -113,7 +113,7 @@ def aggregate_region(region):
     """
 
     # Table 28: Water Heater Stock by Building Type and Energy Source
-    t28_stk = utils.get_compr_db(region, 28, 15, 20) # kunit
+    t28_stk = utils.get_compr_db(region, 28, 15, 20) / 1000 # Munit
 
     # Notes for database
     note = f"{base_year} stock (NRCan, {base_year}) indexed to population (Statcan, {statcan_year}) and distributed evenly over feasible past vintages."
@@ -128,22 +128,28 @@ def aggregate_region(region):
         ## Existing capacity
         # Get existing capacity (stock) from nrcan and index to population growth
         existing_cap = t28_stk.loc[nrcan_stock, base_year]
+
         if existing_cap == 0:
-            print(f"No existing capacity for space heating tech {tech} in region {region}")
+            print(f"No existing capacity for water heating tech {tech} in region {region}. Skipped.")
             continue
         
-        # Index to population and distribute existing capacities evenly over feasible vintages
-        vints = config.tech_vints[tech]
-
+        # Distribute existing capacities evenly over feasible vintages
+        vints, weights = utils.stock_vintages(base_year, config.lifetimes[row['aeo_class']])
+        
         # Write existing capacities to database
-        for vint in vints:
+        for v, vint in enumerate(vints):
+
+            weight = weights[v]
+
             if vint + config.lifetimes[row['aeo_class']] <= config.model_periods[0]: continue
+
+            exs_cap = existing_cap * weight
 
             curs.execute(
                 f"""REPLACE INTO
                 ExistingCapacity(region, tech, vintage, capacity, units,
                 notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
-                VALUES('{region}', '{tech}', {vint}, {existing_cap / len(vints)}, '(kunit)',
+                VALUES('{region}', '{tech}', {vint}, {exs_cap}, '({water_heating['cap_unit']})',
                 '{note}', '{ref.id}', 1, 1, 2, 1, 1, '{utils.data_id(region)}')"""
             )
         
