@@ -291,7 +291,12 @@ def stock_vintages(stock_year, lifetime, vint_interval=config.params['period_ste
     # Stock year lands on a stepped vintage so divide evenly
     elif stock_year == vint_last: weights = [1 / len(vints)] * len(vints)
     # Stock year is after last stepped vintage so give it a lesser weighting proportional to time interval
-    else: weights = [vint_interval / (vints[-1]-vints[0])] * (len(vints) - 1) + [stock_year%vint_interval / (vints[-1]-vints[0])]
+    else: weights = [vint_interval / (vints[-1]-vints[0]+vint_interval)] * (len(vints) - 1) + [stock_year%vint_interval / (vints[-1]-vints[0]+vint_interval)]
+
+    if abs(sum(weights) - 1) > 0.0001:
+        wgt = sum(weights)
+        msg = f"Something went wrong distributing existing capacities. Weights must sum to 1. Got {wgt}"
+        raise RuntimeError(msg)
 
     return vints, weights
     

@@ -189,7 +189,7 @@ def aggregate_region(region):
     """
 
     # Table 21: Heating System Stock by Building Type and Heating System Type
-    t21_stk = utils.get_compr_db(region, 21, 16, 30) # kunit
+    t21_stk = utils.get_compr_db(region, 21, 16, 30) / 1000 # Munit
 
     # Notes for database
     note = f"{base_year} stock (NRCan, {base_year}) distributed evenly over feasible preceding vintages."
@@ -208,16 +208,15 @@ def aggregate_region(region):
         # Get existing capacity (stock) from nrcan and index to population growth
         existing_cap = sum([t21_stk.loc[substock, base_year] for substock in substocks])
         if existing_cap == 0:
-            print(f"No existing capacity for space heating tech {tech} in region {region}")
+            print(f"No existing capacity for space heating tech {tech} in region {region}. Skipped.")
             continue
         
         # Distribute existing capacities evenly over feasible vintages
         vints, weights = utils.stock_vintages(base_year, config.lifetimes[row['aeo_class']])
         
         # Write existing capacities to database
-        for v in range(len(vints)):
+        for v, vint in enumerate(vints):
 
-            vint = vints[v]
             weight = weights[v]
 
             if vint + config.lifetimes[row['aeo_class']] <= config.model_periods[0]: continue

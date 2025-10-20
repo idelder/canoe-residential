@@ -132,13 +132,14 @@ def pre_process():
             Commodity(name, flag, description, data_id)
             VALUES('{row['comm']}', 'd', '(PJ) {row['description']}', '{utils.data_id()}')"""
         )
-        
-    # CO2-equivalent emission commodity
-    curs.execute(
-        f"""REPLACE INTO
-        Commodity(name, flag, description, data_id)
-        VALUES('{config.params['emission_commodity']}', 'e', '(ktCO2eq) CO2-equivalent emissions', '{utils.data_id()}')"""
-    )
+    
+    if config.params['include_emissions']:
+        # CO2-equivalent emission commodity
+        curs.execute(
+            f"""REPLACE INTO
+            Commodity(name, flag, description, data_id)
+            VALUES('{config.params['emission_commodity']}', 'e', '(ktCO2eq) CO2-equivalent emissions', '{utils.data_id()}')"""
+        )
 
 
 
@@ -543,6 +544,11 @@ def post_process_region(region):
     """
 
     ref = config.refs.get('nrcan_statcan')
+
+    # In case we need to remove something
+    all_tables = [fetch[0] for fetch in curs.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
+    t_tables = [table for table in all_tables if 'tech' in [description[0] for description in curs.execute(f"SELECT * FROM '{table}'").description]]
+    rt_tables = [table for table in t_tables if 'region' in [description[0] for description in curs.execute(f"SELECT * FROM '{table}'").description]]
         
     ## AEO future stock
     # Copy from NRCan existing stock    
@@ -562,19 +568,27 @@ def post_process_region(region):
             
             end_use = end_uses[e]
             nrcan_tech = nrcan_equivs[e]
-
+            
             out_comm = end_use_demands.loc[end_use, 'comm']
             
             note = f"Assumed same as {nrcan_equivs[e]}"
-
+            
             # Get annual capacity factor from equivalent nrcan tech for which we have data
             acf = curs.execute(
                 f"""SELECT factor FROM LimitAnnualCapacityFactor
                 WHERE tech == '{nrcan_tech}'
                 AND region == '{region}'
+                AND output_comm == '{out_comm}'
                 AND operator == 'le'"""
             ).fetchone()
-            if not acf: continue
+            if not acf:
+                print(
+                    f"Could not get an equivalent ACF for ({region}, {tech}). Looked for ({region}, {nrcan_tech}). "
+                    "Removing this region-tech pair from the model."
+                )
+                for table in rt_tables:
+                    curs.execute(f"DELETE FROM '{table}' WHERE tech == '{tech}' AND region == '{region}'")
+                continue
             else: acf = acf[0]
 
             for period in config.model_periods:
@@ -882,21 +896,32 @@ def cleanup():
     # Get all tables with tech and region indices
     all_tables = [fetch[0] for fetch in curs.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
     t_tables = [table for table in all_tables if 'tech' in [description[0] for description in curs.execute(f"SELECT * FROM '{table}'").description]]
-    tr_tables = [table for table in t_tables if 'region' in [description[0] for description in curs.execute(f"SELECT * FROM '{table}'").description]]
+    rt_tables = [table for table in t_tables if 'region' in [description[0] for description in curs.execute(f"SELECT * FROM '{table}'").description]]
 
     for region in config.model_regions:
         for tech, row in config.existing_techs.iterrows():
             if row['end_use'] == 'appliances other': continue # Does not have capacity
 
-            exs_cap = sum([fetch[0] for fetch in curs.execute(f"SELECT capacity FROM ExistingCapacity WHERE tech == '{tech}' and region == '{region}'").fetchall()])
-            if exs_cap == 0:
+            exs_cap = curs.execute(f"SELECT sum(capacity) FROM ExistingCapacity WHERE tech == '{tech}' and region == '{region}'").fetchone()[0]
+            if not exs_cap or exs_cap < config.params['existing_cap_tolerance']:
                 
                 # If no existing capacity for an existing tech, purge tech/region combo from database
-                for table in tr_tables: 
+                for table in rt_tables: 
                     curs.execute(f"DELETE FROM '{table}' WHERE tech == '{tech}' AND region == '{region}'")
 
-                print(f"Cleaned up existing tech with no existing capacity: ({region}, {tech})")
+                print(f"Cleaned up existing region-tech with little or no existing capacity: ({region}, {tech})")
 
+    for tech, row in config.existing_techs.iterrows():
+        if row['end_use'] == 'appliances other': continue # Does not have capacity
+
+        exs_cap = curs.execute(f"SELECT sum(capacity) FROM ExistingCapacity WHERE tech == '{tech}'").fetchone()[0]
+        if not exs_cap or exs_cap == 0:
+            
+            # If no existing capacity for an existing tech, purge tech/region combo from database
+            for table in t_tables: 
+                curs.execute(f"DELETE FROM '{table}' WHERE tech == '{tech}'")
+
+            print(f"Cleaned up existing tech with no existing capacity: {tech}")
 
     conn.commit()
     conn.close()
