@@ -117,7 +117,7 @@ def aggregate_region(region):
     """
 
     # Table 28: Water Heater Stock by Building Type and Energy Source
-    t28_stk = utils.get_compr_db(region, 28, 15, 20) / 1000 # Munit
+    t28_stk = utils.get_compr_db(region, 28, 15, 20) # kunit
 
     # Notes for database
     note = (

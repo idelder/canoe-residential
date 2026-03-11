@@ -199,7 +199,7 @@ def aggregate_region(region):
     """
 
     # Table 21: Heating System Stock by Building Type and Heating System Type
-    t21_stk = utils.get_compr_db(region, 21, 16, 30) / 1000 # Munit
+    t21_stk = utils.get_compr_db(region, 21, 16, 30) # kunit
 
     # Notes for database
     note = (
