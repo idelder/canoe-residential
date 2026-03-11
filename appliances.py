@@ -76,7 +76,10 @@ def aggregate_region(region):
     ##############################################################
     """
 
-    note = f"{base_year} stock (NRCan, {base_year}) distributed evenly over feasible preceding vintages."
+    note = (
+        f"{base_year} stock (NRCan, {base_year}) carried forward to last existing vintage"
+         " and distributed evenly over feasible existing vintages."
+    )
     ref = config.refs.get('nrcan')
 
     # Table 31: Appliance Stock by Appliance Type and Energy Source
@@ -104,7 +107,7 @@ def aggregate_region(region):
             continue
 
         # Distribute existing capacities evenly over feasible vintages
-        vints, weights = utils.stock_vintages(base_year, config.lifetimes[row['aeo_class']])
+        vints, weights = utils.stock_vintages(config.lifetimes[row['aeo_class']])
 
         # Write existing capacities to database
         for v, vint in enumerate(vints):
@@ -131,16 +134,17 @@ def aggregate_region(region):
     ##############################################################
     """
 
-    note = (
-        f"Existing capacity multiplied by an arbitrary {acf} annual capacity factor to ensure existing capacity is "
-        f"sufficient to meet peak demand. Indexed to projected population."
-    )
     ref = config.refs.get('nrcan_statcan')
 
     for end_use, exs_dem in dems.items():
         for period in config.model_periods:
 
-            dem = exs_dem * pop.loc[period].iloc[0] / pop.loc[base_year].iloc[0]
+            yr = utils.data_year(period)
+            dem = exs_dem * pop.loc[yr].iloc[0] / pop.loc[base_year].iloc[0]
+            note = (
+                f"Existing capacity multiplied by an arbitrary {acf} annual capacity factor to ensure existing capacity is "
+                f"sufficient to meet peak demand. Indexed to population projection (Statcan) at {yr}."
+            )
 
             curs.execute(
                 f"""REPLACE INTO
@@ -266,20 +270,22 @@ def aggregate_region(region):
         base_eff = aeo_res_class.loc[row['aeo_class'], 'Base Efficiency']
         eff_exs = curs.execute(f"SELECT efficiency FROM Efficiency WHERE region == '{region}' and tech == '{nrcan_tech}'").fetchone()[0]
 
-        note = (
-            f"(Munity/PJ) Efficiency assumed same as {nrcan_tech} "
-            f"but indexed to relative efficiency for this vintage versus baseline efficiency from AEO data."
-        )
-
         vints = config.tech_vints[tech]
         for vint in vints:
 
+            yr = utils.data_year(vint) # end-of-period data year for this vintage
+
             # Relevant to this vintage
-            if type(df1) is pd.DataFrame: new_eff = df1.loc[(df1['First Year']<=vint) & (vint<=df1['Last Year']), 'Efficiency'].iloc[0]
+            if type(df1) is pd.DataFrame: new_eff = df1.loc[(df1['First Year']<=yr) & (yr<=df1['Last Year']), 'Efficiency'].iloc[0]
             elif type(df1) is pd.Series: new_eff = df1['Efficiency'] # only one row remaining
 
             if new_eff >= base_eff: eff = eff_exs * new_eff / base_eff
             else: eff = eff_exs * base_eff / new_eff # efficiency units are energy consumption so invert
+
+            note = (
+                f"(Munity/PJ) Efficiency assumed same as {nrcan_tech} "
+                f"but indexed to relative AEO efficiency in {yr} versus baseline efficiency."
+            )
 
             # Write to table
             curs.execute(

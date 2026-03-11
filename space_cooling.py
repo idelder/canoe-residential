@@ -37,9 +37,7 @@ def aggregate_region(region):
         Demand
     ##############################################################
     """
-
-    note = (f"Sum of {base_year} secondary energy multiplied by efficiency per technology (NRCan, {base_year}). "
-            f"Indexed to projected population (Statcan)")
+    
     ref = config.refs.get('nrcan_statcan')
 
     # Table 4: Space Cooling Secondary Energy Use and GHG Emissions by Cooling System Type
@@ -60,11 +58,16 @@ def aggregate_region(region):
 
     # Write to database
     for period in config.model_periods:
+        yr = utils.data_year(period)
+        note = (
+            f"Sum of {base_year} secondary energy multiplied by efficiency per technology (NRCan, {base_year}). "
+            f"Indexed to projected population in {yr} (Statcan)"
+        )
         curs.execute(
             f"""REPLACE INTO
             Demand(region, period, commodity, demand, units,
             notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
-            VALUES('{region}', {period}, '{space_cooling['comm']}', {dem.loc[period].iloc[0]}, '({space_cooling['dem_unit']})',
+            VALUES('{region}', {period}, '{space_cooling['comm']}', {dem.loc[yr].iloc[0]}, '({space_cooling['dem_unit']})',
             '{note}', '{ref.id}', 1, 1, 1, 1, 3, '{utils.data_id(region)}')"""
         )
 
@@ -116,7 +119,10 @@ def aggregate_region(region):
     t27_stk = utils.get_compr_db(region, 27, 3, 4) / 1000 # Munit
 
     # Notes for database
-    note = f"{base_year} stock (NRCan, {base_year}) distributed evenly over feasible preceding vintages."
+    note = (
+        f"{base_year} stock (NRCan, {base_year}) carried forward to last existing vintage"
+         " and distributed evenly over feasible existing vintages."
+    )
 
     # Get existing capacities from NRCan stock and distribute over past vintages
     for tech, row in nrcan_techs.iterrows():
@@ -134,7 +140,7 @@ def aggregate_region(region):
             continue
         
         # Distribute existing capacities evenly over feasible vintages
-        vints, weights = utils.stock_vintages(base_year, config.lifetimes[row['aeo_class']])
+        vints, weights = utils.stock_vintages(config.lifetimes[row['aeo_class']])
         
         # Write existing capacities to database
         for v, vint in enumerate(vints):
@@ -156,7 +162,10 @@ def aggregate_region(region):
 
         ## Annual capacity factor for NRCan existing stock
         # (for new stock pulled in all sectors post processing)
-        max_note = (f"Annual utilisation of units. (annual secondary energy consumption * efficiency) / (c2a * existing stock) (NRCan, {base_year})")
+        max_note = (
+            "Annual utilisation of units. (annual secondary energy consumption * efficiency) "
+            f"/ (c2a * existing stock) (NRCan, {base_year})"
+        )
         min_note = "95% of MaxACF for slack. " + max_note
 
         act = activity[base_year].loc[nrcan_stock] # annual PJ output

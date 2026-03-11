@@ -9,7 +9,6 @@ model_periods:
   - 2035
   - 2040
   - 2045
-  - 2050
 
 weather_year: 2018 # For normalised timeseries data only
 base_year: 2022 # Default year to pull data from
@@ -51,7 +50,7 @@ nrcan_reference: 'Natural Resources Canada, (2025). Comprehensive Energy Use Dat
 handbook_reference: 'Natural Resources Canada, (2025). Energy Use Data Handbook Tables. https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/menus/trends/handbook/tables.cfm'
 
 aeo_reference: 'EIA. (2025, April 15). Download the National Energy Modeling System (NEMS). rsmess [dataset]. https://www.eia.gov/outlooks/aeo/info_nems_archive.php'
-aeo_updated_reference: "EIA. (2023). Updated Buildings Sector Appliance and Equipment Costs and Efficiency—Reference case [dataset]. https://www.eia.gov/analysis/studies/buildings/equipcosts/"
+aeo_updated_reference: "EIA. (2023). Updated Buildings Sector Appliance and Equipment Costs and Efficiency-Reference case [dataset]. https://www.eia.gov/analysis/studies/buildings/equipcosts/"
 aeo_data_year: 2025
 aeo_currency_year: 2022
 aeo_currency: 'USD'
