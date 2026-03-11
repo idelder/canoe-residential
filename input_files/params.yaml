@@ -19,6 +19,9 @@ data_version: '001'
 
 global_discount_rate: 0.05
 
+# Existing capacities below this are simply removed. Too small to matter.
+existing_cap_tolerance: 0.1
+
 # Currency, data costs are exchanged and inflated in post processing
 final_currency: 'CAD' # Not configured to output currencies other than CAD yet
 final_currency_year: 2020
