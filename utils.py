@@ -299,12 +299,13 @@ def stock_vintages(
     vints = list(range(int(vint_last), int(stock_year-lifetime), -int(vint_interval)))
     vints.sort()
 
+    # Just in case stock year is exactly on a vintage, make sure to include it
+    if stock_year not in vints: vints.append(stock_year)
+
     # Has to be an existing vintage but we often use e.g. 2024 to represent end of 2025
     # because Temoa traps us into start-of-period indexing
     if vints[-1] >= config.model_periods[0]:
         vints[-1] = config.model_periods[0] - 1
-
-    if stock_year not in vints: vints.append(stock_year)
     
     # Only one vintage so all weight in there
     if len(vints) == 1: weights = [1]
