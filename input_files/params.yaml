@@ -15,7 +15,7 @@ base_year: 2022 # Default year to pull data from
 timezone: 'EST'
 
 data_id_prefix: 'RESHR'
-data_version: '001'
+data_version: '002'
 
 global_discount_rate: 0.05
 
