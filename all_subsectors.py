@@ -593,19 +593,19 @@ def post_process_region(region):
                 continue
             else: acf = acf[0]
 
-            for period in config.model_periods:
+            for vintage in config.model_periods:
                 curs.execute(
                     f"""REPLACE INTO
-                    LimitAnnualCapacityFactor(region, period, tech, output_comm, operator, factor,
+                    LimitAnnualCapacityFactor(region, tech, vintage, output_comm, operator, factor,
                     notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
-                    VALUES('{region}', {period}, '{tech}', '{out_comm}', 'ge', {acf*0.95},
+                    VALUES('{region}', '{tech}', {vintage}, '{out_comm}', 'ge', {acf*0.95},
                     '{note}', '{ref.id}', 1, 1, 3, 3, 3, '{utils.data_id(region)}')"""
                 )
                 curs.execute(
                     f"""REPLACE INTO
-                    LimitAnnualCapacityFactor(region, period, tech, output_comm, operator, factor,
+                    LimitAnnualCapacityFactor(region, tech, vintage, output_comm, operator, factor,
                     notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
-                    VALUES('{region}', {period}, '{tech}', '{out_comm}', 'le', {acf},
+                    VALUES('{region}', '{tech}', {vintage}, '{out_comm}', 'le', {acf},
                     '{note}', '{ref.id}', 1, 1, 3, 3, 3, '{utils.data_id(region)}')"""
                 )
          

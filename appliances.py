@@ -48,24 +48,24 @@ def aggregate_region(region):
     # Get existing capacities from NRCan stock and distribute over past vintages
     for tech, row in exs_techs.iterrows():
         if 'appliances' not in row['end_use']: continue
+        if row['end_use'] == 'appliances other': continue # no capacity so does not apply
 
         out_comm = end_use_demands.loc[row['end_use'], 'comm']
 
-        for period in config.model_periods:
-            if row['end_use'] == 'appliances other': continue # no capacity expansion so does not apply
-            if max(config.tech_vints[tech]) + config.lifetimes[row['aeo_class']] <= period: continue
+        for vint in config.tech_vints[tech]:
+            if vint + config.lifetimes[row['aeo_class']] <= config.model_periods[0]: continue
 
             # Lower limit
             curs.execute(
                 f"""REPLACE INTO
-                LimitAnnualCapacityFactor(region, period, tech, output_comm, operator, factor, notes, data_id)
-                VALUES('{region}', {period}, '{tech}', '{out_comm}', 'ge', {acf*0.95}, '{min_note}', '{utils.data_id(region)}')"""
+                LimitAnnualCapacityFactor(region, tech, vintage, output_comm, operator, factor, notes, data_id)
+                VALUES('{region}', '{tech}', {vint}, '{out_comm}', 'ge', {acf*0.95}, '{min_note}', '{utils.data_id(region)}')"""
             )
             # Upper limit
             curs.execute(
                 f"""REPLACE INTO
-                LimitAnnualCapacityFactor(region, period, tech, output_comm, operator, factor, notes, data_id)
-                VALUES('{region}', {period}, '{tech}', '{out_comm}', 'le', {acf}, '{max_note}', '{utils.data_id(region)}')"""
+                LimitAnnualCapacityFactor(region, tech, vintage, output_comm, operator, factor, notes, data_id)
+                VALUES('{region}', '{tech}', {vint}, '{out_comm}', 'le', {acf}, '{max_note}', '{utils.data_id(region)}')"""
             )
 
 

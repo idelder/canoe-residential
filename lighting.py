@@ -101,20 +101,20 @@ def aggregate_region(region):
 
         if not row['include_new']: continue
         
-        for period in config.model_periods:
+        for vintage in config.model_periods:
 
             curs.execute(
                 f"""REPLACE INTO
-                LimitAnnualCapacityFactor(region, period, tech, output_comm, operator, factor,
+                LimitAnnualCapacityFactor(region, tech, vintage, output_comm, operator, factor,
                 notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
-                VALUES('{region}', {period}, '{row['tech']}', '{lighting['comm']}', 'ge', {acf*0.95},
+                VALUES('{region}', '{row['tech']}', {vintage}, '{lighting['comm']}', 'ge', {acf*0.95},
                 '{min_note}', '{ref.id}', 1, 3, 3, 1, 4, '{utils.data_id(region)}')"""
             )
             curs.execute(
                 f"""REPLACE INTO
-                LimitAnnualCapacityFactor(region, period, tech, output_comm, operator, factor,
+                LimitAnnualCapacityFactor(region, tech, vintage, output_comm, operator, factor,
                 notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
-                VALUES('{region}', {period}, '{row['tech']}', '{lighting['comm']}', 'le', {acf},
+                VALUES('{region}', '{row['tech']}', {vintage}, '{lighting['comm']}', 'le', {acf},
                 '{acf_note}', '{ref.id}', 1, 3, 3, 1, 4, '{utils.data_id(region)}')"""
             )
 
@@ -239,21 +239,21 @@ def aggregate_region(region):
             '(y) {aeo_note}', '{ref.id}', 1, 3, 2, 2, 3, '{utils.data_id(region)}')"""
         )
 
-        for period in config.model_periods:
-            if max(vints) + lifetime <= period: continue
+        for vint in vints:
+            if vint + lifetime <= config.model_periods[0]: continue
 
             curs.execute(
                 f"""REPLACE INTO
-                LimitAnnualCapacityFactor(region, period, tech, output_comm, operator, factor,
+                LimitAnnualCapacityFactor(region, tech, vintage, output_comm, operator, factor,
                 notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
-                VALUES('{region}', {period}, '{exs['tech']}', '{lighting['comm']}', 'ge', {acf*0.95},
+                VALUES('{region}', '{exs['tech']}', {vint}, '{lighting['comm']}', 'ge', {acf*0.95},
                 '{min_note}', '{ref.id}', 1, 3, 2, 2, 4, '{utils.data_id(region)}')"""
             )
             curs.execute(
                 f"""REPLACE INTO
-                LimitAnnualCapacityFactor(region, period, tech, output_comm, operator, factor,
+                LimitAnnualCapacityFactor(region, tech, vintage, output_comm, operator, factor,
                 notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
-                VALUES('{region}', {period}, '{exs['tech']}', '{lighting['comm']}', 'le', {acf},
+                VALUES('{region}', '{exs['tech']}', {vint}, '{lighting['comm']}', 'le', {acf},
                 '{acf_note}', '{ref.id}', 1, 3, 2, 2, 4, '{utils.data_id(region)}')"""
             )
 

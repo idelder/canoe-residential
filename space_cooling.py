@@ -174,21 +174,21 @@ def aggregate_region(region):
         # Annual capacity factor is actual annual activity divided by max possible annual activity from arbitrary c2a
         acf = act / (existing_cap * c2a)
 
-        for period in config.model_periods:
-            if max(vints) + config.lifetimes[row['aeo_class']] <= period: continue
+        for vint in vints:
+            if vint + config.lifetimes[row['aeo_class']] <= config.model_periods[0]: continue
             
             curs.execute(
                 f"""REPLACE INTO
-                LimitAnnualCapacityFactor(region, period, tech, output_comm, operator, factor,
+                LimitAnnualCapacityFactor(region, tech, vintage, output_comm, operator, factor,
                 notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
-                VALUES('{region}', {period}, '{tech}', '{space_cooling['comm']}', 'ge', {acf*0.95},
+                VALUES('{region}', '{tech}', {vint}, '{space_cooling['comm']}', 'ge', {acf*0.95},
                 '{min_note}', '{ref.id}', 1, 1, 1, 1, 3, '{utils.data_id(region)}')"""
             )
             curs.execute(
                 f"""REPLACE INTO
-                LimitAnnualCapacityFactor(region, period, tech, output_comm, operator, factor,
+                LimitAnnualCapacityFactor(region, tech, vintage, output_comm, operator, factor,
                 notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
-                VALUES('{region}', {period}, '{tech}', '{space_cooling['comm']}', 'le', {acf},
+                VALUES('{region}', '{tech}', {vint}, '{space_cooling['comm']}', 'le', {acf},
                 '{max_note}', '{ref.id}', 1, 1, 1, 1, 3, '{utils.data_id(region)}')"""
             )
 
