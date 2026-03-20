@@ -239,24 +239,6 @@ def aggregate_region(region):
             '(y) {aeo_note}', '{ref.id}', 1, 3, 2, 2, 3, '{utils.data_id(region)}')"""
         )
 
-        for vint in vints:
-            if vint + lifetime <= config.model_periods[0]: continue
-
-            curs.execute(
-                f"""REPLACE INTO
-                LimitAnnualCapacityFactor(region, tech, vintage, output_comm, operator, factor,
-                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
-                VALUES('{region}', '{exs['tech']}', {vint}, '{lighting['comm']}', 'ge', {acf*0.95},
-                '{min_note}', '{ref.id}', 1, 3, 2, 2, 4, '{utils.data_id(region)}')"""
-            )
-            curs.execute(
-                f"""REPLACE INTO
-                LimitAnnualCapacityFactor(region, tech, vintage, output_comm, operator, factor,
-                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
-                VALUES('{region}', '{exs['tech']}', {vint}, '{lighting['comm']}', 'le', {acf},
-                '{acf_note}', '{ref.id}', 1, 3, 2, 2, 4, '{utils.data_id(region)}')"""
-            )
-
         # Some lighting techs didn't come around that long ago so restrict the oldest vintage
         if not pd.isna(exs['oldest_vint']): vints = [vint for vint in vints if vint >= exs['oldest_vint']]
 
@@ -295,6 +277,21 @@ def aggregate_region(region):
                 notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
                 VALUES('{region}', '{in_comm['comm']}', '{exs['tech']}', {vint}, '{lighting['comm']}', {exs['efficacy']},
                 '({lighting['dem_unit']}/{in_comm['unit']}) {aeo_note}', '{ref.id}', 1, 2, 3, 3, 4, '{utils.data_id(region)}')"""
+            )
+
+            curs.execute(
+                f"""REPLACE INTO
+                LimitAnnualCapacityFactor(region, tech, vintage, output_comm, operator, factor,
+                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                VALUES('{region}', '{exs['tech']}', {vint}, '{lighting['comm']}', 'ge', {acf*0.95},
+                '{min_note}', '{ref.id}', 1, 3, 2, 2, 4, '{utils.data_id(region)}')"""
+            )
+            curs.execute(
+                f"""REPLACE INTO
+                LimitAnnualCapacityFactor(region, tech, vintage, output_comm, operator, factor,
+                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
+                VALUES('{region}', '{exs['tech']}', {vint}, '{lighting['comm']}', 'le', {acf},
+                '{acf_note}', '{ref.id}', 1, 3, 2, 2, 4, '{utils.data_id(region)}')"""
             )
             
             for period in config.model_periods:
